@@ -219,8 +219,8 @@ function waterNormals(){ const N=256, h=new Float32Array(N*N), W=[]; let seed=7;
     const n=new THREE.Vector3(-dx*0.9,-dy*0.9,1).normalize(); d[i*4]=(n.x*.5+.5)*255; d[i*4+1]=(n.y*.5+.5)*255; d[i*4+2]=(n.z*.5+.5)*255; d[i*4+3]=255; }
   const t=new THREE.DataTexture(d,N,N); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.needsUpdate=true; return t; }
 const WNORM=waterNormals();
-function makeOcean(){ const w=new Water(new THREE.PlaneGeometry(5000,5000),{textureWidth:512,textureHeight:512,waterNormals:WNORM,sunDirection:sunDir.clone(),sunColor:0xfff4e0,waterColor:0x0b2f3d,distortionScale:2.2,fog:true,alpha:1.0});
-  w.rotation.x=-Math.PI/2; w.material.uniforms.size.value=2.2; return w; }
+function makeOcean(){ const w=new Water(wxSeaGeometry(),{textureWidth:512,textureHeight:512,waterNormals:WNORM,sunDirection:sunDir.clone(),sunColor:0xfff4e0,waterColor:0x0b2f3d,distortionScale:2.2,fog:true,alpha:1.0});
+  w.rotation.x=-Math.PI/2; w.material.uniforms.size.value=2.2; wxPatchSea(w); wxSetup(); return w; }
 let shipEnvOn=null;
 function shipEnv(on){ if(on===shipEnvOn) return; shipEnvOn=on; scene.environment=on?skyEnv:roomEnv; scene.fog=on?fogShip:null; scene.background=on?null:new THREE.Color('#0f161e');
   hemi.intensity=on?0.35:0.6; sun.intensity=on?2.6:1.4; sun.castShadow=on; renderer.toneMappingExposure=on?0.62:1.05;
@@ -422,7 +422,6 @@ function applyValves(mod,state){
 const TD=17.1, TOPZ=17.36;
 const TANK={x0:-1.6,x1:18.07,y0:-6.85,y1:7.1}; // blender
 const PLANNED={
- hs_er:{t:'Engine room machinery',s:['Two-stroke main engine exploded and working cycle','Generators, boilers, purifiers, OWS, steering gear','Hydraulic power units feeding the deepwell pumps']},
  hs_coff:{t:'Cofferdams',s:['Separation of cargo area from engine room and forward spaces','Access, ventilation and gas testing before entry']}
 };
 const MODS={
@@ -434,7 +433,8 @@ const MODS={
  hs_anchor:{id:'anc',t:'Anchoring',ship:'anchor'},
  hs_mooring:{id:'moo',t:'Mooring',ship:'mooring'},
  hs_crane:{id:'m9',t:'Hose crane & manifold',ship:'manifold'},
- hs_pumproom:{id:'pr',t:'Cargo pump room (conventional tanker)'}
+ hs_pumproom:{id:'pr',t:'Cargo pump room (conventional tanker)'},
+ hs_er:{id:'me',t:'Main engine: two-stroke cycle & turbocharger'}
 };
 let tankShared=null;
 async function getTank(){
@@ -931,7 +931,7 @@ const ANCM={
  {t:'Ready the anchor',cam:'deck',d:8,set:{clutchS:1},b:['Start the windlass hydraulic power pack; check the brake, clutch and controls.','Remove the sea lashings and the spurling-pipe cover. The anchor is still held by the brake and the bow stopper.','Engage the clutch so the windlass motor controls the cable lifter.']},
  {t:'Walk back clear of the hawse',cam:'outside',d:11,set:{clutchS:1,stopS:1,brakeS:0,motor:-1},lin:{D:[0,5]},b:['Open the bow stopper and take off the brake.','Lower the anchor under power until it is clear of the hawse pocket and hanging just above the water.','In deeper water (roughly over 20\u201325 m, per company procedure) the anchor is walked back all the way to the bottom instead of being let go.']},
  {t:'Clutch out, hold on the brake',cam:'windlass',d:8,set:{clutchS:0,stopS:1,brakeS:1,motor:0},lin:{D:[5,5]},b:['Stop the motor and apply the brake hard.','Disengage the dog clutch: the cable lifter is now free of the gearbox and held only by the brake.','The ship is stopped or moving slowly astern over the planned position.']},
- {t:'Let go',cam:'under',d:12,set:{clutchS:0,stopS:1,brakeS:0},lin:{D:[5,58]},ease:'in',b:['Release the brake. The anchor falls under its own weight and drags the chain off the cable lifter and up out of the locker.','It hits the seabed; the brake is then applied gently so the chain does not pile on top of the anchor.','The officer forward reports the cable as each joining shackle (marked white) passes the windlass.']},
+ {t:'Let go',cam:'under',d:12,set:{clutchS:0,stopS:1,brakeS:0},lin:{D:[5,58]},ease:'in',b:['Release the brake. The anchor falls under its own weight and drags the chain off the cable lifter and up out of the locker.','It hits the seabed; the brake is then applied gently so the chain does not pile on top of the anchor.','The officer forward reports the cable as each shackle mark passes the windlass (the joining shackle painted red or orange, with white-painted links either side counting the shackles out).']},
  {t:'Pay out under brake control',cam:'under',d:12,set:{clutchS:0,stopS:1,brakeS:.5},lin:{D:[58,113]},b:['The ship drops back and lays the chain along the bottom; the brake controls the rate.','Usual scope is several times the depth \u2014 here four shackles (110 m) in 25 m of water.','The weight of chain on the seabed, not the anchor alone, provides much of the holding power.']},
  {t:'Brought up',cam:'deck',d:9,set:{clutchS:0,stopS:0,brakeS:1},lin:{D:[113,113]},b:['Apply the brake fully and put the bow stopper bar down across a link, so the load is taken off the windlass.','The anchor is brought up when the cable rises and falls back as the ship holds, with no more drag.','Show the anchor ball by day and anchor lights at night; log the position and cable out.']},
  {t:'Heave up',cam:'locker',d:14,set:{clutchS:1,stopS:1,brakeS:0,motor:1,wash:1},lin:{D:[113,6]},b:['Engage the clutch, open the stopper, release the brake and heave. Class rules require a mean speed of at least 9 m/min.','Hawse washing nozzles clean mud off the chain; the chain falls down the spurling pipe and piles in the locker.','Report the cable direction and remaining shackles to the bridge; "anchor aweigh" when it leaves the bottom.']},
@@ -1020,7 +1020,7 @@ const MOOM={
  {t:'Send the lines ashore',cam:'quay',d:13,set:{brkP:0,brkS:0,clutch:1,hz:1},lin:{ext:[0,1],payH:[0,45],payB:[0,25]},b:['Clutch in, brake off: the winches pay out while a heaving line (or the mooring boat) takes each eye to the linesmen.','The eyes are placed over the shore bollards; the bridge is told when each line is fast ashore.','Keep the slack line out of the water and clear of the propeller and thrusters.']},
  {t:'Heave to the planned tension',cam:'deck',d:10,set:{brkP:0,brkS:0,clutch:1,hz:1},lin:{Th:[0,12],Tb:[0,12],sagH:[5,0.6],sagB:[4,0.5],payH:[45,43],payB:[25,23.5]},b:['Heave the lines in together until the ship is alongside in position, with tension shared evenly between lines of the same group.','Watch the line and the fairlead from outside the line\u2019s path, never standing in the bight.']},
  {t:'Make fast on the brakes',cam:'winch',d:9,set:{brkP:1,brkS:1,clutch:0,hz:1},lin:{Th:[12,12],Tb:[12,12],sagH:[.6,.6],sagB:[.5,.5]},b:['Apply the brakes and take the drums out of gear. The ship is held on the brakes, which are set to hold 60% of MBLSD (MEG4).','Winches are not left in automatic self-tensioning mode alongside: it can let the ship walk along the berth.','Only one layer of rope on the tension section \u2014 extra layers lower the brake holding capacity.']},
- {t:'Tending during cargo work',cam:'quay',d:13,set:{brkP:1,brkS:1,clutch:0,hz:1},lin:{rise:[0,1.6],Th:[12,30],Tb:[12,34]},b:['As cargo is discharged the ship rises, and the tide changes; the lines tighten.','Tension is checked regularly and lines are slackened or heaved to keep them even, well below the line\u2019s working load limit (50% of MBLSD in MEG4 terms).','Uneven or very high tensions are reported to the officer of the watch.']},
+ {t:'Tending during cargo work',cam:'quay',d:13,set:{brkP:1,brkS:1,clutch:0,hz:1},lin:{rise:[0,1.6],Th:[12,30],Tb:[12,34]},b:['As cargo is discharged the ship rises, and the tide changes; the lines tighten.','Tension is checked regularly and lines are slackened or heaved to keep them even, well below the line\u2019s working load limit (WLL) set under MEG4.','Uneven or very high tensions are reported to the officer of the watch.']},
  {t:'Brake renders under a surge',cam:'winch',d:11,set:{brkP:1,brkS:1,clutch:0,hz:1,surge:1},lin:{rise:[1.6,1.6],Th:[30,62],Tb:[34,30],payH:[43,44.5]},b:['A passing ship or a gust surges the head line. When the load reaches the brake setting (60% of MBLSD) the brake renders: the drum slips and pays out a little rope.','This protects the line, which breaks only at about 100% of MBLSD, and the fittings.','After a rendering the line is heaved back to its correct tension and the brake is re-tightened and logged.']},
  {t:'Unmooring',cam:'quay',d:12,set:{brkP:0,brkS:0,clutch:1,hz:1,surge:0},lin:{rise:[1.6,1.6],Th:[30,0],Tb:[30,0],sagH:[.6,5],sagB:[.5,4],ext:[1,0],payH:[44.5,0],payB:[23.5,0]},b:['On the pilot\u2019s order, slack the lines; the linesmen lift the eyes off the bollards.','Heave in quickly, keeping lines out of the water and the propeller; stow them neatly on the storage section.','Report \u201call clear forward\u201d to the bridge.']}
  ],
@@ -1098,7 +1098,108 @@ const PRM={
   T.rotSpeed={bp1:on(1)?(4+14*s.dv):0,bp2:on(2)?(4+14*s.dv):0,bp3:on(3)?(4+14*s.dv):0};
  }
 };
-const M_ALL={dwp:DWP,load:LOAD,ig:IGM,tc:TCM,bal:BALM,anc:ANCM,moo:MOOM,pr:PRM};
+// ================= M10 main engine: two-stroke cycle and turbocharger (one cylinder of the 6G50ME-C9.6, cut open)
+let meShared=null;
+const MEK={r:1.25,L:2.885,ZX:4.135,ZC:7.535,ZL1:7.75,ZP0:5.035,ZP1:5.214,RB:0.25,A:Math.PI*0.25*0.25,Vc:0.0218,EVO:115,EVC:265,PO:140,PC:220,SOI:357,EOI:18,LIFT:0.11};
+function meDisp(th){ const a=th*Math.PI/180, r=MEK.r, L=MEK.L; return r*(1-Math.cos(a))+L-Math.sqrt(L*L-r*r*Math.sin(a)**2); }
+function meVol(th){ return MEK.Vc+MEK.A*meDisp(th); }
+function meP(th,load){ // simplified indicator diagram, bar absolute
+  const ps=1+2.6*load, pe=ps-0.3, pmax=60+125*load; th=((th%360)+360)%360;
+  const Vevc=meVol(MEK.EVC), pcomp=t=>ps*Math.pow(Vevc/meVol(t),1.35), p8=Math.max(pmax,pcomp(0)), V8=meVol(8);
+  if(th>=MEK.EVC&&th<MEK.SOI) return pcomp(th);
+  if(th>=MEK.SOI) return pcomp(th)+(p8-pcomp(0))*0.15*(th-MEK.SOI)/3;
+  if(th<8) return pcomp(th)+(p8-pcomp(th))*(0.15+0.85*th/8);
+  if(th<MEK.EVO) return p8*Math.pow(V8/meVol(th),1.3);
+  const p115=p8*Math.pow(V8/meVol(MEK.EVO),1.3);
+  if(th<MEK.PO) return pe+(p115-pe)*Math.exp(-(th-MEK.EVO)/6);
+  return ps-0.05; }
+function meLift(th){ th=((th%360)+360)%360; if(th<MEK.EVO||th>MEK.EVC) return 0; const k=Math.min(1,(th-MEK.EVO)/18,(MEK.EVC-th)/22); return MEK.LIFT*Math.sin(Math.min(1,k)*Math.PI/2); }
+function mePhase(th){ th=((th%360)+360)%360;
+  if(th>=MEK.SOI||th<MEK.EOI) return 'Injection and combustion'; if(th<MEK.EVO) return 'Expansion (power stroke)'; if(th<MEK.PO) return 'Exhaust blowdown';
+  if(th<MEK.PC) return 'Scavenging'; if(th<MEK.EVC) return 'Exhaust valve still open'; return 'Compression'; }
+async function getME(){
+  if(meShared) return meShared;
+  const root=await loadModel('me'); const r=root.getObjectByName('ME_Root'); if(r) r.position.set(0,0,0);
+  const grp=new THREE.Group(); grp.add(root); scene.add(grp); grp.visible=false;
+  const prep=prepModel(root); const {R,E}=readRoutes(root); const fx=new THREE.Group(); grp.add(fx);
+  const SEE={ME_Bedplate:.22,ME_Frame:.3,ME_ScavBox:.1,ME_CylFrame:.1,ME_Liner:.28,ME_Cover:.45,ME_ExhValveCage:.5,ME_ScavReceiver:.3,ME_ExhReceiver:.3,ME_TCCasing:.3,ME_AirCooler:.35,ME_MistCatcher:.35,ME_AirFilter:.55,ME_AuxBlower:.35};
+  root.traverse(o=>{ if(!o.isMesh) return; let n=o; while(n&&SEE[n.name]===undefined&&n!==root) n=n.parent; if(n&&SEE[n.name]!==undefined){ const m=o.material; m.transparent=true; m.opacity=SEE[n.name]; m.depthWrite=false; m.userData.op0=m.opacity; m.userData.tr0=true; } });
+  const F={};
+  for(const k of ['AirIn','AirComp','AirCool','AirRec','AirScav']) F[k]=makeFlow(R[k],'gas','air',fx);
+  for(const k of ['ExhOut','ExhRec','ExhUp']) F[k]=makeFlow(R[k],'gas','flue',fx);
+  F.Servo=makeFlow(R.Servo,'oil','oil',fx); F.Servo2=makeFlow(R.Servo2,'oil','oil',fx); F.CoolW=makeFlow(R.CoolW,'liquid','water',fx);
+  const N=n=>root.getObjectByName(n);
+  const mv={crank:N('ME_Crankshaft'),rod:N('ME_ConRod'),pist:N('ME_Piston'),rings:N('ME_PistonRings'),spin:N('ME_ExhSpindle')};
+  for(const o of Object.values(mv)) if(o){ o.userData.p0=o.position.clone(); o.userData.q0=o.quaternion.clone(); }
+  // gas inside the cylinder: a column between the piston crown and the cover whose colour shows air, flame or exhaust
+  const gasM=new THREE.MeshBasicMaterial({color:0x9ec9ff,transparent:true,opacity:.35,depthWrite:false}); const gas=new THREE.Mesh(new THREE.CylinderGeometry(MEK.RB*0.97,MEK.RB*0.97,1,32),gasM); gas.renderOrder=2; fx.add(gas);
+  const glow=new THREE.PointLight(0xffa040,0,6,2); glow.position.copy(B(0,0,MEK.ZL1-0.1)); fx.add(glow);
+  const sw=(p,v,r0,z,up,inw)=>{ const a=Math.random()*6.283; p.copy(B(r0*Math.cos(a),r0*Math.sin(a),z)); const t=new THREE.Vector3(-Math.sin(a),Math.cos(a),0); v.copy(B(t.x*1.2-Math.cos(a)*inw,t.y*1.2-Math.sin(a)*inw,up)); };
+  const P={
+    port:new Particles(500,{color:'#dff0ff',life:.9,size:.035,alpha:.75,soft:0,spawn:(p,v)=>sw(p,v,MEK.RB*0.98,(MEK.ZP0+MEK.ZP1)/2,2.6,0.25)},fx),
+    exh:new Particles(400,{color:'#8d8478',life:.8,size:.09,grow:2,alpha:.45,drag:.4,spawn:(p,v)=>{ const a=Math.random()*6.283; p.copy(B(0.14*Math.cos(a),0.14*Math.sin(a),MEK.ZL1+0.05)); v.copy(B(0.6*Math.cos(a),0.6*Math.sin(a)+1.2,1.6)); }},fx),
+    inj1:new Particles(300,{color:'#ffcf6a',life:.3,size:.018,alpha:.9,soft:0,add:true,spawn:(p,v)=>{ p.copy(E.Inj1); const d=B(-0.85,0.25,-0.15).add(new THREE.Vector3(rnd(.12),rnd(.06),rnd(.12))); v.copy(d.multiplyScalar(1.0)); }},fx),
+    inj2:new Particles(300,{color:'#ffcf6a',life:.3,size:.018,alpha:.9,soft:0,add:true,spawn:(p,v)=>{ p.copy(E.Inj2); const d=B(0.85,-0.25,-0.15).add(new THREE.Vector3(rnd(.12),rnd(.06),rnd(.12))); v.copy(d.multiplyScalar(1.0)); }},fx),
+    flame:new Particles(400,{color:'#ff8a2a',life:.5,size:.12,grow:1.8,alpha:.5,add:true,drag:1.5,spawn:(p,v)=>{ const a=Math.random()*6.283, rr=Math.random()*MEK.RB*0.9; p.copy(B(rr*Math.cos(a),rr*Math.sin(a),MEK.ZL1-0.05-Math.random()*0.15)); v.copy(B(-Math.sin(a)*0.6,Math.cos(a)*0.6,-0.4)); }},fx),
+    stack:new Particles(260,{color:'#9a948c',life:2.6,size:.5,grow:3,alpha:.18,drag:.5,spawn:(p,v)=>{ p.copy(E.Uptake); v.set(rnd(.3),3+Math.random()*2,rnd(.3)); }},fx),
+    filt:new Particles(200,{color:'#eaf4ff',life:1.4,size:.18,alpha:.15,drag:.2,spawn:(p,v)=>{ p.copy(E.Filter).add(new THREE.Vector3(0.6+Math.random()*0.6,rnd(.7),rnd(.7))); v.set(-1.6,0,0); }},fx),
+    drain:new Particles(120,{color:'#7fc4d4',life:.8,size:.04,alpha:.8,soft:0,gravity:9.8,spawn:(p,v)=>{ p.copy(E.Drain); v.set(rnd(.05),-0.2,rnd(.05)); }},fx)
+  };
+  meShared={grp,root,prep,R,E,F,P,mv,gas,gasM,glow,state:{},th:0}; window.TQME=meShared;
+  return meShared;
+}
+const MEM={
+ id:'me', title:'Main engine: two-stroke cycle and turbocharger', crumb:'Training module \u203a Main engine',
+ intro:'One cylinder of ISF Quest\u2019s MAN B&W 6G50ME-C9.6 main engine cut open: bore 500 mm, stroke 2,500 mm, about 100 rpm at full power. It is a crosshead, uniflow-scavenged two-stroke: air enters through ports at the bottom of the liner and the burnt gas leaves through one exhaust valve in the cover, so the whole cycle takes one turn of the crankshaft. The turbocharger, driven only by exhaust gas, supplies the air.',
+ xray:[],
+ cams:{over:[B(9.5,-12.5,9.5),B(1.4,0.4,6.0)],head:[B(2.5,-1.1,8.0),B(0,0,7.35)],cyl:[B(4.6,-3.2,6.2),B(0,0,4.8)],ports:[B(0.6,-0.62,5.42),B(0,0,5.2)],
+   tc:[B(9.0,-6.5,11.5),B(3.9,1.9,8.6)],blower:[B(4.4,7.4,7.4),B(1.0,1.9,5.6)],crank:[B(3.2,-4.6,1.4),B(0,0,1.0)],explode:[B(10,-13,9),B(1,0.5,5)]},
+ init:{th:0,run:0,tc:0,aux:0,load:0},
+ steps:[
+ {t:'The engine and its parts',cam:'over',d:13,set:{th:0,run:0,tc:0,load:0},b:['Running gear: crankshaft, connecting rod, crosshead in its guides, piston rod and piston. The guides take all the side thrust, so the piston and liner carry none \u2014 this is what allows the long 2.5 m stroke.','Combustion space: liner with the scavenge ports, cylinder cover with the exhaust valve, two fuel valves, starting air valve and safety valve.','Air and gas path: turbocharger, air cooler, water mist catcher, scavenge air receiver, exhaust receiver and auxiliary blower. On the other side, the hydraulic cylinder unit (HCU) replaces the camshaft.']},
+ {t:'Injection and combustion',cam:'head',d:13,set:{run:0,tc:0.85,load:0.85},lin:{th:[-8,22]},b:['Near top dead centre the air has been compressed to about 150 bar and is hot enough (over 500 \u00b0C) to ignite fuel. Fuel is injected at about 1,000 bar from about 3\u00b0 before TDC.','The HCU\u2019s FIVA valve, timed by the engine control system, sends 300 bar servo oil to the fuel booster that drives the injection; there is no fuel cam.','Fuel ignites as it sprays across the swirling air; pressure peaks at about 185 bar just after TDC. Injection ends about 15\u201320\u00b0 after TDC.']},
+ {t:'Expansion: the power stroke',cam:'cyl',d:12,set:{run:0,tc:0.85,load:0.85},lin:{th:[22,112]},b:['The hot gas expands and drives the piston down. The force passes through the piston rod, crosshead and connecting rod to turn the crankshaft.','Pressure falls as the volume grows; most of the work is done in the first part of the stroke.']},
+ {t:'Exhaust blowdown',cam:'head',d:11,set:{run:0,tc:0.85,load:0.85},lin:{th:[110,142]},b:['The exhaust valve is opened hydraulically at about 110\u2013125\u00b0 after TDC, before the ports open.','Cylinder pressure \u201cblows down\u201d into the exhaust receiver, so it is below the scavenge air pressure by the time the piston uncovers the ports \u2014 otherwise exhaust gas would blow back into the scavenge space.']},
+ {t:'Scavenging (uniflow)',cam:'ports',d:13,set:{run:0,tc:0.85,load:0.85},lin:{th:[140,225]},b:['At about 140\u00b0 after TDC the piston crown uncovers the ports. Air at about 3.5 bar from the scavenge box rushes in; the angled ports set it swirling.','The air sweeps straight up the cylinder and pushes the burnt gas out through the open exhaust valve \u2014 one direction only, hence \u201cuniflow\u201d.','The ports close again about 140\u00b0 before TDC; the piston position, not a valve, sets this timing.']},
+ {t:'Compression',cam:'cyl',d:12,set:{run:0,tc:0.85,load:0.85},lin:{th:[225,352]},b:['The exhaust valve stays open a little after the ports close, then the air spring shuts it at about 95\u00b0 before TDC.','The trapped air is compressed as the piston rises; its pressure climbs to about 150 bar and its temperature well above the fuel\u2019s ignition point.','The cycle repeats every revolution: one power stroke per cylinder per turn.']},
+ {t:'The whole cycle, running',cam:'over',d:16,set:{run:0.35,tc:0.85,load:0.85},b:['Shown at about a fifth of real speed: at 92 rpm each cylinder fires about once every 0.65 seconds.','Watch the piston uncover the ports, the exhaust valve open and close, and the colour of the gas in the cylinder: air, flame, exhaust.','The six cylinders fire in turn, 60\u00b0 apart, for an even turning moment on the shaft.']},
+ {t:'Turbocharger: air and gas path',cam:'tc',d:15,set:{run:0.35,tc:0.85,load:0.85},b:['Exhaust gas from the receiver (about 400\u2013450 \u00b0C) drives the turbine and leaves up the uptake to the exhaust gas boiler and funnel at about 230\u2013280 \u00b0C.','The compressor on the same shaft draws air through the filter and silencer and compresses it; the cooler brings it from about 190 \u00b0C down to about 40 \u00b0C, and the mist catcher drains the condensed water.','Cool, dense air in the scavenge receiver means more oxygen per stroke, more power and lower exhaust temperatures.']},
+ {t:'Low load: auxiliary blowers',cam:'blower',d:13,set:{run:0.18,tc:0.25,load:0.2,aux:1},b:['At low load the exhaust gas has too little energy for the turbocharger to give enough scavenge air.','The electric auxiliary blowers start automatically when scavenge air pressure falls (typically below about 30\u201340% load) and stop again as it rises; non-return flaps stop air flowing back through them.','Before starting the engine the blowers are run, so the cylinders have clean air for the first firing.']},
+ {t:'Watchkeeping checks',cam:'over',d:13,set:{run:0.35,tc:0.85,load:0.85,aux:0},b:['Each watch: exhaust temperatures even across cylinders, scavenge air pressure and temperature, turbocharger speed, jacket and piston cooling temperatures, cylinder oil feed rate.','Scavenge box drains opened regularly: oil or water there warns of ring or liner trouble and risk of a scavenge fire.','Ring and liner condition inspected through the scavenge ports at intervals; an oil-mist detector watches the crankcase for overheating bearings.']}
+ ],
+ gauges(s){ const th=((meShared?meShared.th:0)%360+360)%360, p=meP(th,s.load);
+   return [['Crank angle',th.toFixed(0)+'\u00b0 after TDC'],['Event',mePhase(th)],['Cylinder pressure',p.toFixed(0)+' bar'],['Exhaust valve',meLift(th)>0.002?'Open':'Shut'],['Scavenge ports',(th>MEK.PO&&th<MEK.PC)?'Uncovered':'Covered'],
+     ['Scavenge air',(1+2.6*s.load).toFixed(1)+' bar abs'],['Turbocharger',Math.round(s.tc*16000)+' rpm'],['Engine speed',Math.round(s.run>0.01?92*s.load/0.85:0)+' rpm'+(s.run>0.01?' (shown slowed)':'')],['Aux. blowers',s.aux>.5?'Running':'Stopped']]; },
+ legend:[['#ffffff','Air'],['#6b625a','Exhaust gas'],['#c8662a','Servo oil'],['#5fb7c4','Cooling water'],['#ffcf6a','Fuel spray']],
+ sme:['Timing (EVO about 115\u00b0 ATDC, EVC about 95\u00b0 BTDC, ports 140\u00b0 either side of BDC, injection from about 3\u00b0 BTDC to 18\u00b0 ATDC) and pressures (compression about 150 bar, maximum about 185 bar, scavenge air 3\u20134 bar abs) are typical of this engine type; confirm against the engine\u2019s shop test and project guide figures.','Auxiliary blower start and stop points are set by the engine maker; the 30\u201340% figure is indicative.','Single cylinder shown; receivers are cut short. The turbocharger is shown at the end of the receivers for clarity.'],
+ refs:'MAN Energy Solutions ME-C project guides and operating instructions; SOLAS II-2 Reg 4.2.2.5 (double-walled high-pressure fuel pipes); MARPOL Annex VI (NOx Tier II engine). Check for amendments after June 2026.',
+ render(T,s,t,dt){
+  const {F,P,mv}=T;
+  if(s.run>0.01){ T.th=(T.th+dt*s.run*360)%360; } else T.th=((s.th%360)+360)%360;
+  const th=T.th, a=th*Math.PI/180, r=MEK.r, d=meDisp(th);
+  if(mv.crank){ mv.crank.quaternion.copy(mv.crank.userData.q0).multiply(_qs.setFromAxisAngle(AX.x,-a)); }
+  const pin=new THREE.Vector3(0,r*Math.cos(a),-r*Math.sin(a)), xh=new THREE.Vector3(0,MEK.ZX-d,0);
+  if(mv.rod){ mv.rod.position.copy(pin); mv.rod.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),xh.clone().sub(pin).normalize()); }
+  for(const o of [mv.pist,mv.rings]) if(o){ o.position.copy(o.userData.p0); o.position.y-=d; }
+  const lift=meLift(th); if(mv.spin){ mv.spin.position.copy(mv.spin.userData.p0); mv.spin.position.y-=lift; }
+  // gas column
+  const top=MEK.ZL1, bot=MEK.ZC-d, h=Math.max(0.02,top-bot); T.gas.scale.set(1,h,1); T.gas.position.copy(B(0,0,bot+h/2));
+  const comb=(th>=MEK.SOI||th<40), exh=(th>=40&&th<MEK.PO), mix=(th>=MEK.PO&&th<MEK.EVC);
+  const c=comb?new THREE.Color(0xff9a3a).lerp(new THREE.Color(0xd2603a),th<40?th/40:0):exh?new THREE.Color(0x8a6a58).lerp(new THREE.Color(0x7d7870),(th-40)/100):mix?new THREE.Color(0x7d7870).lerp(new THREE.Color(0xbfe0ff),Math.min(1,(th-MEK.PO)/60)):new THREE.Color(0xbfe0ff);
+  T.gasM.color.copy(c); T.gasM.opacity=comb?0.55:0.32; T.gas.visible=s.load>0.05||s.th>0;
+  const fire=s.load>0.05&&(th>=MEK.SOI||th<30); T.glow.intensity=fire?(th<30?(30-th)/30*25:12):0;
+  const inj=s.load>0.05&&(th>=MEK.SOI||th<MEK.EOI), slow=s.run>0.01?1:0.25;
+  P.inj1.rate=inj?900*slow:0; P.inj2.rate=inj?900*slow:0; P.flame.rate=fire?600*slow:0;
+  const ports=th>MEK.PO&&th<MEK.PC; P.port.rate=ports&&s.load>0.05?700*slow:0; P.exh.rate=lift>0.01&&s.load>0.05?500*slow:0;
+  const go=s.tc>0.05||s.aux>0.5;
+  for(const k of ['AirIn','AirComp','AirCool']) F[k].set(s.tc>0.05,1.6*s.tc+0.2);
+  F.AirRec.set(go,1.4*Math.max(s.tc,0.3)); F.AirScav.set(go&&ports,2.0); F.ExhOut.set(s.load>0.05&&lift>0.01,2.2); F.ExhRec.set(s.tc>0.05,1.5*s.tc); F.ExhUp.set(s.tc>0.05,1.8*s.tc);
+  F.Servo.set(inj,2.5); F.Servo2.set(s.load>0.05&&lift>0.005&&lift<MEK.LIFT*0.95,2.5); F.CoolW.set(s.tc>0.05,1.2);
+  P.stack.rate=s.tc>0.05?30*s.tc:0; P.filt.rate=s.tc>0.05?40*s.tc:0; P.drain.rate=s.tc>0.5?25:0;
+  T.rotSpeed={b1:s.tc*60,b2:s.aux>0.5?35:0};
+ }
+};
+const M_ALL={dwp:DWP,load:LOAD,ig:IGM,tc:TCM,bal:BALM,anc:ANCM,moo:MOOM,pr:PRM,me:MEM};
 let cur=0,tStep=0,playing=false,tab='op',explode=0,selPart=null,xrayOn=true,section=false,clock=0;
 let S={};
 function stepState(mod,i,k){ // state at step i, progress k (0..1)
@@ -1133,11 +1234,11 @@ function modOff(){ return placed?placed.off:OFF0; }
 async function openModule(id){ stopAnim(); highlight(null);
   const mod=M_ALL[id]; if(!mod) return;
   $('#loading').hidden=false; $('#loading').textContent='Loading 3D model\u2026';
-  let T; try{ T = id==='ig'? await getIG() : id==='bal'? await getBal() : id==='anc'? await getAnc() : id==='moo'? await getMoo() : id==='pr'? await getPR() : await getTank(); }catch(e){ $('#loading').textContent='The 3D model could not load. Reload the page to try again.'; return; }
+  let T; try{ T = id==='ig'? await getIG() : id==='bal'? await getBal() : id==='anc'? await getAnc() : id==='moo'? await getMoo() : id==='pr'? await getPR() : id==='me'? await getME() : await getTank(); }catch(e){ $('#loading').textContent='The 3D model could not load. Reload the page to try again.'; return; }
   $('#loading').hidden=true;
   if(active&&active.mod.leave) active.mod.leave(active.T);
   mode='mod'; active={mod,T}; resetFx(T); if(mod.enter) mod.enter(T); else if(T.covers) T.covers.visible=true;
-  for(const g of [tankShared,igShared,balShared,ancShared,mooShared,prShared]) if(g) g.grp.visible=false; T.grp.visible=true;
+  for(const g of [tankShared,igShared,balShared,ancShared,mooShared,prShared,meShared]) if(g) g.grp.visible=false; T.grp.visible=true;
   const pl=placeModule(id,T); shipGroup.visible=!!pl;   // modules with a placement open in place inside the ship
   hotspotEls.forEach(h=>h.el.hidden=true);
   camera.near=0.02; camera.far=600; camera.updateProjectionMatrix(); controls.minDistance=.5; controls.maxDistance=120;
@@ -1152,7 +1253,7 @@ async function openModule(id){ stopAnim(); highlight(null);
 function flyCam(instant){ const {mod}=active; const cn=mod.steps[cur].cam, pc=placed&&PLACE[placed.id]&&PLACE[placed.id].cams&&PLACE[placed.id].cams[cn]; const c0=pc||mod.cams[cn]; const o=pc?new THREE.Vector3():modOff(); const c=[c0[0].clone().add(o),c0[1].clone().add(o)]; if(instant){ camera.position.copy(c[0]); controls.target.copy(c[1]); } else { const p=active._lastCam; if(!p||p!==mod.steps[cur].cam) flyTo(c[0],c[1],3.0); active._lastCam=mod.steps[cur].cam; } }
 function renderTools(){
   const {mod,T}=active;
-  tools.innerHTML=`<button class="tbtn" id="xr" aria-pressed="${xrayOn}">See-through pipes</button><button class="tbtn" id="sect" aria-pressed="${section}">Section cut</button>${mod.id!=='ig'&&mod.id!=='bal'&&mod.id!=='anc'&&mod.id!=='moo'&&mod.id!=='pr'?'<button class="tbtn" id="ctx" aria-pressed="true">Tank structure</button>':''}`;
+  tools.innerHTML=`<button class="tbtn" id="xr" aria-pressed="${xrayOn}">See-through pipes</button><button class="tbtn" id="sect" aria-pressed="${section}">Section cut</button>${mod.id!=='ig'&&mod.id!=='bal'&&mod.id!=='anc'&&mod.id!=='moo'&&mod.id!=='pr'&&mod.id!=='me'?'<button class="tbtn" id="ctx" aria-pressed="true">Tank structure</button>':''}`;
   $('#xr').onclick=e=>{ xrayOn=!xrayOn; e.target.setAttribute('aria-pressed',xrayOn); setXray(mod.xray,xrayOn,T.root); };
   $('#sect').onclick=e=>{ section=!section; e.target.setAttribute('aria-pressed',section); clipPlane.constant=section?modOff().z:1e4; };
   const c=$('#ctx'); if(c) c.onclick=e=>{ const on=e.target.getAttribute('aria-pressed')!=='true'; e.target.setAttribute('aria-pressed',on); T.prep.parts.filter(p=>p.g==='tank').forEach(p=>p.o.visible=on); };
@@ -1221,9 +1322,9 @@ let cutaway=false, underwater=false; const shipSpin={prop:[],rud:[]};
 const UWU={value:0};
 function hullMaterial(){
   const m=new THREE.MeshStandardMaterial({color:'#ffffff',roughness:.62,metalness:.05,side:THREE.DoubleSide});
-  m.onBeforeCompile=sh=>{ sh.uniforms.uT=SEA_T; sh.uniforms.uUW=UWU; sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying float vY; varying float vNy; varying float vX; varying float vZ;').replace('#include <begin_vertex>','#include <begin_vertex>\nvY=position.y; vNy=normal.y; vX=position.x; vZ=position.z;');
-    sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying float vY; varying float vNy; varying float vX; varying float vZ; uniform float uT; uniform float uUW;').replace('vec4 diffuseColor = vec4( diffuse, opacity );',
-     'vec3 hc = vNy>0.8&&vY>18.9? vec3(.33,.085,.06) : (vY<7.5? vec3(.42,.08,.05) : (vY<13.6? vec3(.025,.028,.032) : vec3(.05,.075,.12))); float sk=smoothstep(0.035,0.0,abs(fract(vY/2.55)-0.5)-0.465); float bt=smoothstep(0.03,0.0,abs(fract(vX/12.0)-0.5)-0.47); float wl=smoothstep(0.06,0.0,abs(vY-13.6)); hc*=1.0-0.10*max(sk,bt)*step(vNy,0.8); float dk=step(0.8,vNy); float ds=max(smoothstep(0.03,0.0,abs(fract(vX/10.0)-0.5)-0.47),smoothstep(0.03,0.0,abs(fract(vZ/2.5)-0.5)-0.465)); hc*=1.0-0.18*ds*dk; hc=mix(hc,vec3(.75,.75,.72),wl*0.0); float gr=fract(sin(dot(floor(vec2(vX,vY)*1.3),vec2(12.9898,78.233)))*43758.5453); hc*=uUW>0.5?0.99+0.02*gr:0.96+0.06*gr; if(uUW>0.5&&vY<11.0){ float cs=(sin(vX*1.3+uT*1.4)+sin(vZ*1.7-uT*1.1)+sin((vX-vZ)*0.9+uT*0.8)+sin((vX+vZ*0.5)*2.1-uT*1.9))/4.0; float ca=pow(0.5+0.5*cs,7.0)*1.1*exp(-(11.0-vY)*0.15); hc+=vec3(0.3,0.5,0.5)*ca; } vec4 diffuseColor = vec4( hc, opacity );'); };
+  m.onBeforeCompile=sh=>{ sh.uniforms.uT=SEA_T; sh.uniforms.uUW=UWU; sh.uniforms.uDeck={value:detTex('deck')}; sh.uniforms.uHullD={value:detTex('hull')}; sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying float vY; varying float vNy; varying float vX; varying float vZ;').replace('#include <begin_vertex>','#include <begin_vertex>\nvY=position.y; vNy=normal.y; vX=position.x; vZ=position.z;');
+    sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying float vY; varying float vNy; varying float vX; varying float vZ; uniform float uT; uniform float uUW; uniform sampler2D uDeck; uniform sampler2D uHullD;').replace('vec4 diffuseColor = vec4( diffuse, opacity );',
+     'vec3 hc = vNy>0.8&&vY>18.9? vec3(.33,.085,.06) : (vY<7.5? vec3(.42,.08,.05) : (vY<13.6? vec3(.025,.028,.032) : vec3(.05,.075,.12))); float sk=smoothstep(0.035,0.0,abs(fract(vY/2.55)-0.5)-0.465); float bt=smoothstep(0.03,0.0,abs(fract(vX/12.0)-0.5)-0.47); float wl=smoothstep(0.06,0.0,abs(vY-13.6)); hc*=1.0-0.10*max(sk,bt)*step(vNy,0.8); float dk=step(0.8,vNy); float ds=max(smoothstep(0.03,0.0,abs(fract(vX/10.0)-0.5)-0.47),smoothstep(0.03,0.0,abs(fract(vZ/2.5)-0.5)-0.465)); hc*=1.0-0.18*ds*dk; hc=mix(hc,vec3(.75,.75,.72),wl*0.0); float gr=fract(sin(dot(floor(vec2(vX,vY)*1.3),vec2(12.9898,78.233)))*43758.5453); hc*=uUW>0.5?0.99+0.02*gr:0.96+0.06*gr; vec3 hdt=vNy>0.8?texture2D(uDeck,vec2(vX,vZ)*0.35).rgb:texture2D(uHullD,vec2(vX*0.09,vY*0.09)).rgb; hc*=mix(1.0,clamp(hdt.r*2.0,0.4,1.5),vNy>0.8?0.45:0.3); if(uUW>0.5&&vY<11.0){ float cs=(sin(vX*1.3+uT*1.4)+sin(vZ*1.7-uT*1.1)+sin((vX-vZ)*0.9+uT*0.8)+sin((vX+vZ*0.5)*2.1-uT*1.9))/4.0; float ca=pow(0.5+0.5*cs,7.0)*1.1*exp(-(11.0-vY)*0.15); hc+=vec3(0.3,0.5,0.5)*ca; } vec4 diffuseColor = vec4( hc, opacity );'); };
   return m;
 }
 function patternMat(m,kind){ m.onBeforeCompile=sh=>{
@@ -1281,18 +1382,21 @@ function setUnderwater(on){ underwater=on; hotspotEls.forEach(h=>h.el.hidden=on)
   if(on) flyTo(new THREE.Vector3(-34,-6,-30),new THREE.Vector3(6,4,0)); }
 function showShip(){
   if(active&&active.mod.leave) active.mod.leave(active.T);
-  unplace(); mode='ship'; active=null; playing=false; shipGroup.visible=true; for(const g of [tankShared,igShared,balShared,ancShared,mooShared,prShared]) if(g) g.grp.visible=false;
+  unplace(); mode='ship'; active=null; playing=false; shipGroup.visible=true; for(const g of [tankShared,igShared,balShared,ancShared,mooShared,prShared,meShared]) if(g) g.grp.visible=false;
   hotspotEls.forEach(h=>h.el.hidden=false); $('#caption').hidden=true;
   camera.near=.5; camera.far=3000; camera.updateProjectionMatrix(); controls.minDistance=20; controls.maxDistance=700;
   if(!camera.userData.init){ camera.position.set(60,110,260); controls.target.set(98,6,0); camera.userData.init=1; }
   flyTo(new THREE.Vector3(60,92,235),new THREE.Vector3(98,6,0));
-  tools.innerHTML=`<button class="tbtn" id="tourb" style="border-color:var(--accent);color:var(--accent)">Ship tour</button><button class="tbtn" id="lbl" aria-pressed="true">Labels: all</button><button class="tbtn" id="cut" aria-pressed="${cutaway}">Cutaway</button><button class="tbtn" id="uw" aria-pressed="${underwater}">Underwater</button><button class="tbtn" id="bow">Bow</button><button class="tbtn" id="erb">Engine room</button><button class="tbtn" id="brg">Bridge</button><button class="tbtn" id="brgw">Bridge wing</button><button class="tbtn" id="accb" aria-pressed="false">Accommodation</button><button class="tbtn" id="wayb" aria-pressed="true">Under way</button><button class="tbtn" id="nightb" aria-pressed="false">Night</button><button class="tbtn" id="lightsb" hidden>Lights: under way</button>`;
+  tools.innerHTML=`<button class="tbtn" id="tourb" style="border-color:var(--accent);color:var(--accent)">Ship tour</button><button class="tbtn" id="lbl" aria-pressed="true">Labels: all</button><button class="tbtn" id="cut" aria-pressed="${cutaway}">Cutaway</button><button class="tbtn" id="uw" aria-pressed="${underwater}">Underwater</button><button class="tbtn" id="bow">Bow</button><button class="tbtn" id="erb">Engine room</button><button class="tbtn" id="brg">Bridge</button><button class="tbtn" id="brgw">Bridge wing</button><button class="tbtn" id="accb" aria-pressed="false">Accommodation</button><button class="tbtn" id="wayb" aria-pressed="true">Under way</button><button class="tbtn" id="nightb" aria-pressed="false">Night</button><button class="tbtn" id="lightsb" hidden>Lights: under way</button><button class="tbtn" id="condb">Loading: Partly loaded</button><button class="tbtn" id="wxb">Weather</button>`;
   $('#cut').onclick=e=>{ setCutaway(!cutaway); if(cutaway){ underwater=false; hotspotEls.forEach(h=>h.el.hidden=false); $('#uw').setAttribute('aria-pressed',false); } e.target.setAttribute('aria-pressed',cutaway); };
   $('#uw').onclick=e=>{ setUnderwater(!underwater); e.target.setAttribute('aria-pressed',underwater); };
   $('#tourb').onclick=tourStart;
   $('#accb').onclick=()=>{ const L=[null,'U','A','B','C']; setAcc(L[(L.indexOf(accDeck)+1)%L.length]); };
   $('#wayb').setAttribute('aria-pressed',VOY.underway); $('#nightb').setAttribute('aria-pressed',VOY.night); if(VOY.night) $('#nightb').textContent='Night: on';
   $('#wayb').onclick=e=>{ VOY.underway=!VOY.underway; e.target.setAttribute('aria-pressed',VOY.underway); toast(VOY.underway?'Under way at 13.2 knots':'Stopped, not making way'); };
+  $('#wxb').onclick=()=>wxCard();
+  $('#condb').onclick=()=>{ COND.hide=false; const i=COND_ORDER.indexOf(COND.cur); if(!cutaway){ setCutaway(true); const c=$('#cut'); if(c) c.setAttribute('aria-pressed',true); } else setCondition(COND_ORDER[(i+1)%COND_ORDER.length]); condCard(); };
+  { const c=COND.list[COND.cur]; if(c) $('#condb').textContent='Loading: '+c.t; }
   $('#nightb').onclick=()=>{ setNight(!VOY.night); toast(VOY.night?'Night: navigation lights by COLREG Part C; orbit round to see each light only within its arc':'Day'); };
   { const LM=['underway','anchored','nuc','ram','cbd'], LT={underway:'Lights: under way',anchored:'Lights: at anchor',nuc:'Lights: NUC',ram:'Lights: RAM',cbd:'Lights: constrained by draught'}, LD={ram:'Restricted in ability to manoeuvre: red-white-red all-round in a vertical line, plus masthead, side and stern lights when making way (Rule 27(b)); by day ball-diamond-ball',cbd:'Constrained by her draught: three all-round reds in a vertical line in addition to the under-way lights (Rule 28); by day a cylinder',underway:'Power-driven vessel under way: masthead lights fwd and aft, sidelights, sternlight (Rule 23)',anchored:'At anchor: all-round white fwd and aft, deck lights on (Rule 30); by day a black ball',nuc:'Not under command: two all-round reds in a vertical line, plus sidelights and sternlight when making way (Rule 27); by day two black balls'};
     const lb=$('#lightsb'); lb.textContent=LT[VOY.lights]; lb.onclick=()=>{ VOY.lights=LM[(LM.indexOf(VOY.lights)+1)%LM.length]; lb.textContent=LT[VOY.lights]; if(VOY.lights!=='underway'&&VOY.underway&&VOY.lights==='anchored'){ VOY.underway=false; $('#wayb').setAttribute('aria-pressed',false); } toast(LD[VOY.lights]); }; lb.hidden=false; }
@@ -1441,7 +1545,7 @@ ANIM.rescue={title:'Rescue boat: launch and recovery',
  steps:[{c:'The boat crew (at least 3) put on immersion suits or anti-exposure suits and lifejackets and board the boat in its cradle. The painter is rigged from well forward to the boat\u2019s bow.',d:7,rule:'SOLAS III Reg 17; LSA Code 5.1',cam:[[8,-30,30],[16.5,-14,23]],clip:[0,2]},
         {c:'The davit takes the weight, lifts the boat out of the cradle and slews it outboard, clear of the ship\u2019s side. The boat hangs fore-and-aft from the single-point hook.',d:7,rule:'LSA Code 6.1.1',cam:[[34,-52,24],[19,-16,18]],clip:[2,9]},
         {c:'The boat is lowered at about 0.8 m/s (real time); everyone keeps clear of the fall. The painter keeps the boat heading with the ship.',d:15,rule:'LSA Code 6.1.2.8 (minimum lowering speed 0.4 + 0.02H m/s)',cam:[[34,-52,24],[19,-16,18]],clip:[9,24]},
-        {c:'Off-load release, painter slipped; the boat motors clear to marshal the liferafts or pick up a person in the water.',d:7,rule:'LSA Code 5.1.4 (release gear)',cam:[[40,-58,24],[22,-18,15]],clip:[24,31]},
+        {c:'Once waterborne the fall is released and the painter slipped; the boat motors clear to marshal the liferafts or pick up a person in the water.',d:7,rule:'LSA Code 5.1.4 (release gear)',cam:[[40,-58,24],[22,-18,15]],clip:[24,31]},
         {c:'Recovery: the boat returns under the davit and the fall is hooked on to the lifting hook.',d:7,rule:'SOLAS III Reg 17',cam:[[34,-52,24],[19,-16,18]],clip:[31,38]},
         {c:'The boat is hoisted with its full complement (shown faster than real time; minimum 0.3 m/s at full load).',d:10,rule:'LSA Code 6.1.2.11 (recovery with full complement)',cam:[[34,-52,24],[19,-16,18]],clip:[38,48]},
         {c:'The davit slews inboard and the boat is landed and secured in its cradle; the fall and hook are made ready.',d:8,rule:'LSA Code 6.1.1',cam:[[8,-30,30],[16.5,-14,23]],clip:[48,56]},
@@ -1463,7 +1567,7 @@ ANIM.liferaft={title:'Liferaft: launching, boarding and float-free',
    if(i===2&&s.can) splashAt(s.spl,s.can.getWorldPosition(new THREE.Vector3()),(ct-12.4)/0.8); }};
 // ---- man-overboard lifebuoy with light and smoke signal
 ANIM.lifebuoy={title:'Man overboard: lifebuoy with light and smoke signal',
- steps:[{c:'Man overboard: shout \u201cMan overboard!\u201d, release the lifebuoy from the bridge wing, press the MOB button on the GNSS/ECDIS and sound three long blasts.',d:7,rule:'SOLAS III Reg 7.1.3 (quick release from the bridge); ICS Bridge Procedures Guide',cam:[[40,-34,36],[27,-17,30]],clip:[0,7]},
+ steps:[{c:'Man overboard: shout \u201cMan overboard!\u201d, release the lifebuoy from the bridge wing, press the MOB button on the GNSS/ECDIS, sound three prolonged blasts, hoist flag \u201cO\u201d and inform the master; post a lookout to keep pointing at the person.',d:7,rule:'SOLAS III Reg 7.1.3 (quick release from the bridge); ICS Bridge Procedures Guide',cam:[[40,-34,36],[27,-17,30]],clip:[0,7]},
         {c:'The lifebuoy falls clear of the side (shown at slow speed); the smoke signal and light activate on reaching the water.',d:5,rule:'LSA Code 2.1.2, 2.1.3',cam:[[50,-42,30],[25.5,-21.5,12.5]],clip:[7,9.2]},
         {c:'Orange smoke for at least 15 minutes and a light of at least 2 cd for at least 2 hours mark the position, day and night.',d:9,rule:'LSA Code 2.1.2.1 (light \u2265 2 cd, \u2265 2 h); 2.1.3.1 (smoke \u2265 15 min)',cam:[[50,-42,30],[25.5,-21.5,12.5]],clip:[9.2,18]},
         {c:'Keep the person in sight, manoeuvre to return (e.g. a Williamson turn) and launch the rescue boat to recover them.',d:6,rule:'IAMSAR Manual Vol. III',cam:[[50,-42,30],[25.5,-21.5,12.5]],clip:[18,26.9]}],
@@ -1491,7 +1595,7 @@ ANIM.co2={title:'Engine-room CO\u2082 release',
         {c:'The alarm must sound long enough to clear the space, and not less than 20 seconds, before the gas is released. Confirm the headcount once more. (Shown faster.)',d:12,rule:'FSS Code Ch. 5, 2.1.3.2 (pre-discharge alarm \u2265 20 s)',cam:[[4.5,-8.6,21.5],[8,-7,20.6]],clip:[18,38]},
         {c:'Operate control 1 (opens the valve to the engine room), then control 2 (releases the cylinders): two separate controls, in that order.',d:5,rule:'FSS Code Ch. 5, 2.2.2',cam:[[6.0,-7.6,21.0],[8,-7,20.5]],clip:[38,42]},
         {c:'85% of the gas reaches the engine room within 2 minutes. Keep the space closed, cool the boundaries and monitor temperatures. Do not re-enter until the fire is out, the space is ventilated and the atmosphere is tested.',d:10,rule:'FSS Code Ch. 5, 2.2.1',cam:[[1.5,-10,22.5],[8,-6,21.2]],clip:[42,54]},
-        {c:'Maintenance: cabinet sealed and alarm tested; annual inspection by a competent person; cylinder contents checked at least every 2 years.',d:6,rule:'MSC.1/Circ.1318',cam:[[1.5,-10,22.5],[8,-6,21.2]],clip:[54,62]}],
+        {c:'Maintenance: cabinet sealed and alarm tested; inspected by the crew and annually by a competent person, with cylinder contents verified by weighing or level gauge at the intervals in MSC.1/Circ.1318/Rev.1.',d:6,rule:'MSC.1/Circ.1318',cam:[[1.5,-10,22.5],[8,-6,21.2]],clip:[54,62]}],
  start(s){ keepPose(s,['FFA_CO2CabinetDoor','FFA_CO2Valve1','FFA_CO2Valve2','FFA_ERDamper_P','FFA_ERDamper_S']); s.al=nodeOf('FFA_CO2Alarm');
    s.lamp=new THREE.Mesh(new THREE.SphereGeometry(.14,12,10),new THREE.MeshBasicMaterial({color:'#ff8a1a'})); s.fx.add(s.lamp); s.lamp.visible=false; },
  frame(s,t,i,k){ const c=s.A.steps[i].clip, ct=c[0]+(c[1]-c[0])*k; clipAt(s,'ANIM_co2',ct);
@@ -1517,7 +1621,7 @@ ANIM.manifold={title:'M9 \u00b7 Hose crane and manifold connection',
         {c:'The crane brings the hose inboard over the rail to the manifold. The crane keeps the hose\u2019s weight off the manifold.',d:7,rule:'OCIMF manifold recommendations: loads on the manifold limited',cam:[[112,-30,30],[96,-14,20]],clip:[24,32]},
         {c:'The flanges are aligned, a new gasket fitted and every bolt hole used; the insulating flange is on the shore side of the hose string.',d:7,rule:'ISGOTT: electrical isolation at the jetty; all bolts fitted',cam:[[99.5,-17.5,22.6],[97,-13.4,21.2]],clip:[32,40]},
         {c:'When ship and terminal agree they are ready, the manifold valve is opened and cargo flows at the agreed starting rate; check for leaks and watch the pressure gauge.',d:6,rule:'ISGOTT: agreed loading plan, start at a slow rate',cam:[[104,-8,25],[97,-12.5,21.3]],clip:[40,46]},
-        {c:'Vapour return, if used, connects to the vapour manifold marked yellow-red-yellow with the word VAPOUR and a stud on the flange. After cargo: drain, close the valve, disconnect, refit the blank.',d:7,rule:'IMO MSC/Circ.585; OCIMF',cam:[[104,-8,25],[99,-12.5,21.3]],clip:[46,52]}],
+        {c:'Vapour return, if used, connects to the vapour manifold, whose last metre is painted red-yellow-red with the word VAPOUR in black and has a stud at the top of the flange face so a liquid hose cannot be connected to it by mistake. After cargo: drain, close the valve, disconnect, refit the blank.',d:7,rule:'IMO MSC/Circ.585; OCIMF',cam:[[104,-8,25],[99,-12.5,21.3]],clip:[46,52]}],
  start(s){ const names=[]; ship.traverse(o=>{ if(/^(CR_|TRM_)/.test(o.name)) names.push(o.name); }); keepPose(s,names); },
  frame(s,t,i,k){ const c=s.A.steps[i].clip; clipAt(s,'ANIM_manifold',c[0]+(c[1]-c[0])*k); }};
 // ---- M7: anchoring on ISF Quest, starboard anchor (clip ANIM_anchor, baked in Blender)
@@ -1714,7 +1818,7 @@ loadModel('life').then(sc=>{ const g={}; sc.traverse(o=>{ if(o.isMesh) g[o.name.
   if(Dg) for(const D of DOLS) D.m.geometry=Dg; if(Wg) WHALE.geometry=Wg; }).catch(()=>{});
 const _v1=new THREE.Vector3(), _v2=new THREE.Vector3(), _m4=new THREE.Matrix4(), _q4=new THREE.Quaternion(), _s4=new THREE.Vector3(), _e4=new THREE.Euler(), _up=new THREE.Vector3(0,1,0);
 function lookAlong(obj,dir){ _m4.lookAt(new THREE.Vector3(0,0,0),dir,_up); obj.quaternion.setFromRotationMatrix(_m4); obj.rotateY(Math.PI/2); }
-window.TQ={get flyTo(){return flyTo},get B(){return B},get W(){return WHALE},get D(){return DOLS},get VOY(){return VOY},get setNight(){return setNight},get sea(){return sea},get ship(){return ship},get hotspotClick(){return hotspotClick},get startAnim(){return startAnim},get nodeOf(){return nodeOf},get FOAM(){return FOAM}};
+window.TQ={get WX(){return WX},get COND(){return COND},get flyTo(){return flyTo},get B(){return B},get W(){return WHALE},get D(){return DOLS},get VOY(){return VOY},get setNight(){return setNight},get sea(){return sea},get ship(){return ship},get hotspotClick(){return hotspotClick},get startAnim(){return startAnim},get nodeOf(){return nodeOf},get FOAM(){return FOAM}};
 function lifeTick(t){ SEA_T.value=t; const sea=11;
   for(const D of DOLS){ const u=t*0.22+D.ph; const R=20; // loop ahead of the bow, out to the side and back
     const cx=214, cz=0; const x=cx+Math.cos(u)*R*0.9, z=cz+Math.sin(u)*R+D.lane*0.4;
@@ -1819,7 +1923,7 @@ function loop(now){
         if(placed.some(q=>R[0]<q[2]&&R[2]>q[0]&&R[1]<q[3]&&R[3]>q[1])) vis=false; else placed.push(R); }
       h.el.style.visibility=vis?'visible':'hidden'; }
   }
-  { const er=!!(cutaway&&shipGroup.visible); erLights.visible=er; if(!shipEnvOn&&!uwOn){ renderer.toneMappingExposure=er?0.78:1.05; hemi.intensity=er?0.38:0.6; sun.intensity=er?0.9:1.4; } } tourTick(); lifeTick(performance.now()/1000); { const now=performance.now(), dt=Math.min(0.1,(now-spinT)/1000); spinT=now; for(const o of SPIN) o.rotation.y+=dt*o.userData.spin*Math.PI/30*(reduce?0:1); } const below=!!(shipGroup.visible&&mode==='ship'&&!cutaway&&camera.position.y<10.9); if(below){ uwEnv(true); if(sea) sea.visible=false; uwTick(performance.now()/1000); } else { if(uwOn){ uwEnv(false); if(sea) sea.visible=!cutaway&&!underwater; } shipEnv(!!(shipGroup.visible&&mode==='ship'&&!underwater&&!cutaway)); } if(sea&&sea.material.uniforms&&!reduce) sea.material.uniforms.time.value+=1/90; { const tt=performance.now()/1000, vd=Math.min(0.1,tt-(loop._vt||tt)); loop._vt=tt; voyageTick(tt,vd); washTick(tt,vd); navLightsTick(); nightApply(); screensTick(tt); lbSeeThrough(); consoleTick(tt,vd); }
+  { const er=!!(cutaway&&shipGroup.visible); erLights.visible=er; if(!shipEnvOn&&!uwOn){ renderer.toneMappingExposure=er?0.78:1.05; hemi.intensity=er?0.38:0.6; sun.intensity=er?0.9:1.4; } } tourTick(); lifeTick(performance.now()/1000); { const now=performance.now(), dt=Math.min(0.1,(now-spinT)/1000); spinT=now; for(const o of SPIN) o.rotation.y+=dt*o.userData.spin*Math.PI/30*(reduce?0:1); } const below=!!(shipGroup.visible&&mode==='ship'&&!cutaway&&camera.position.y<10.9); if(below){ uwEnv(true); if(sea) sea.visible=false; uwTick(performance.now()/1000); } else { if(uwOn){ uwEnv(false); if(sea) sea.visible=!cutaway&&!underwater; } shipEnv(!!(shipGroup.visible&&mode==='ship'&&!underwater&&!cutaway)); } if(sea&&sea.material.uniforms&&!reduce) sea.material.uniforms.time.value+=1/90; { const tt=performance.now()/1000, vd=Math.min(0.1,tt-(loop._vt||tt)); loop._vt=tt; wxTick(vd); voyageTick(tt,vd); condTick(); wxLive(tt); washTick(tt,vd); navLightsTick(); nightApply(); screensTick(tt); lbSeeThrough(); consoleTick(tt,vd); }
   if(composer===null&&AO_ON&&!loop._ao){ loop._ao=1; setupComposer(); resize(); }
   if(composer) composer.render(); else renderer.render(scene,camera); requestAnimationFrame(loop);
 }
@@ -1898,12 +2002,147 @@ function consoleTick(t,dt){ const B_=CONS.bnwas; if(mode==='ship'){ B_.t+=dt; B_
     g.fillStyle='#333'; g.fillRect(16,80,W-32,30); g.fillStyle=st?'#f43':'#3c8'; g.fillRect(16,80,(W-32)*Math.min(1,B_.t/B_.period),30); g.fillStyle='#fff'; g.font='16px monospace'; g.fillText('Time since last reset: '+B_.t.toFixed(0)+' s',16,150); }
   else if(CONS.open==='teleg'){ const g=S.g,W=c.width,H=c.height; g.fillStyle='#0a0f16'; g.fillRect(0,0,W,H); g.fillStyle='#ffd27a'; g.font='bold 22px monospace'; g.fillText(TELEG[CONS.teleg],16,40); g.fillStyle='#9fb'; g.font='16px monospace'; g.fillText('Ordered '+TELRPM[CONS.teleg]+' rpm \u00b7 speed '+TELKN[CONS.teleg].toFixed(1)+' kn',16,80); }
 }
+// ================= loading conditions: every cargo, slop, ballast and bunker tank with a level; draught and trim follow
+const COND={cur:'part',liq:[],Mc:new THREE.Matrix4(),list:{
+ light:{t:'Lightship',Tf:2.3,Ta:4.7,disp:10700,dwt:0,cargo:0,ballast:0,bunk:0,way:false,cot:[0,0,0,0,0,0],slop:0,wbt:0,fpt:0,apt:0,fuel:0,
+   d:'Empty ship as built: no cargo, ballast, fuel or stores. Not a seagoing condition: the propeller and rudder are not immersed and the bow is high out of the water.'},
+ bdep:{t:'Ballast departure',Tf:5.6,Ta:7.9,disp:30500,dwt:19800,cargo:0,ballast:17800,bunk:1600,way:true,cot:[0,0,0,0,0,0],slop:0.05,wbt:0.95,fpt:0.95,apt:0.6,fuel:0.85,
+   d:'Sailing to the loading port in segregated ballast only. Meets MARPOL Annex I Reg 18: mean draught at least 2.0 + 0.02L (5.5 m), trim by the stern not more than 0.015L (2.6 m) and the propeller fully immersed.'},
+ barr:{t:'Ballast arrival',Tf:5.3,Ta:7.7,disp:29300,dwt:18600,cargo:0,ballast:17800,bunk:350,way:true,cot:[0,0,0,0,0,0],slop:0.05,wbt:0.95,fpt:0.95,apt:0.6,fuel:0.2,
+   d:'Arriving at the loading port: same ballast, most of the fuel used. Ballast water is treated by the BWMS before discharge (BWM Convention D-2).'},
+ load:{t:'Loading in progress',Tf:8.6,Ta:9.4,disp:41200,dwt:30500,cargo:22500,ballast:6000,bunk:1500,way:false,cot:[0.5,0.5,0.5,0.5,0.5,0.5],slop:0.1,wbt:0.3,fpt:0.2,apt:0.4,fuel:0.75,
+   d:'Alongside the terminal: cargo coming in while ballast is pumped out at the same time, following the loading plan so stress, stability and trim stay within the loading-computer limits.'},
+ part:{t:'Partly loaded',Tf:10.8,Ta:11.2,disp:51400,dwt:40700,cargo:38000,ballast:0,bunk:1600,way:true,cot:[0.98,0.98,0.98,0.98,0.98,0],slop:0.4,wbt:0,fpt:0,apt:0,fuel:0.8,
+   d:'Five pairs of cargo tanks loaded to 98% and No.6 empty (for example a second grade loaded at the next port). Ballast tanks empty.'},
+ full:{t:'Fully loaded (summer draught)',Tf:13.0,Ta:13.2,disp:59700,dwt:49000,cargo:46000,ballast:0,bunk:1600,way:true,cot:[0.98,0.98,0.98,0.98,0.98,0.98],slop:0.6,wbt:0,fpt:0,apt:0,fuel:0.85,
+   d:'All cargo tanks loaded to 98% (2% space left for expansion), diesel at about SG 0.86, at the summer load line (13.3 m). Ballast tanks empty.'}}};
+const COND_ORDER=['light','bdep','barr','load','part','full'];
+function condKey(n){ let m;
+  if((m=/^COT_(\d)/.exec(n))) return ['cot',+m[1]-1]; if(/^SLOP_/.test(n)) return ['slop'];
+  if(/^(WBT_APT)/.test(n)) return ['apt']; if(/^(FPT|FWD_WBT)/.test(n)) return ['fpt']; if(/^WBT_/.test(n)) return ['wbt'];
+  if(/^TK_.*(HFO|MGO|FO|Settl|Serv|Storage)/i.test(n)) return ['fuel']; return null; }
+function condAttach(){ ship.updateMatrixWorld(true);
+  const mats={cot:0xb8861f,slop:0x7a5a2c,wbt:0x2e8f8a,fpt:0x2e8f8a,apt:0x2e8f8a,fuel:0x2a1d12};
+  const add=[]; ship.traverse(o=>{ if(!o.isMesh||o.userData.liq) return; const n=o.name||'', pn=(o.parent&&o.parent.name)||''; const k=condKey(n)||condKey(pn); if(!k) return; add.push([o,k]); });
+  for(const [o,k] of add){ const g=o.geometry; g.computeBoundingBox(); const bb=g.boundingBox;
+    const plane=new THREE.Plane(new THREE.Vector3(0,-1,0),0);
+    const m=new THREE.MeshStandardMaterial({color:mats[k[0]],transparent:true,opacity:k[0]==='fuel'?0.85:0.72,roughness:0.15,metalness:0.0,side:THREE.DoubleSide,clippingPlanes:[plane],depthWrite:false});
+    const l=new THREE.Mesh(g,m); l.userData.liq=1; l.renderOrder=1; l.position.copy(o.position); l.quaternion.copy(o.quaternion); l.scale.copy(o.scale); o.parent.add(l);
+    COND.liq.push({l,o,k,plane,cx:(bb.min.x+bb.max.x)/2,cz:(bb.min.z+bb.max.z)/2,y0:bb.min.y,y1:bb.max.y}); }
+  for(const o of [...(layerObjs.cargo||[]),...(layerObjs.ballast||[])]) o.traverse(m=>{ if(m.isMesh&&!m.userData.liq&&m.material){ m.material.opacity=Math.min(m.material.opacity,0.13); m.material.needsUpdate=true; } });
+  setCondition(COND.cur,true); }
+function condFill(c,k){ const v=c[k[0]]; return Array.isArray(v)?v[k[1]]:v; }
+function setCondition(key,quiet){ const c=COND.list[key]; if(!c) return; COND.cur=key;
+  const LBP=174, Tm=(c.Tf+c.Ta)/2, th=Math.atan((c.Ta-c.Tf)/LBP), PC=B(89,0,11);
+  const q=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,0,1),th);
+  COND.Mc.compose(new THREE.Vector3(0,-(Tm-11),0).add(PC).sub(PC.clone().applyQuaternion(q)),q,new THREE.Vector3(1,1,1));
+  if(!c.way&&VOY.underway){ VOY.underway=false; const w=$('#wayb'); if(w) w.setAttribute('aria-pressed',false); }
+  const b=$('#condb'); if(b) b.textContent='Loading: '+c.t; condCard(); if(!quiet) toast(c.t+' \u00b7 draught F '+c.Tf.toFixed(1)+' m, A '+c.Ta.toFixed(1)+' m'); }
+function condCard(){ let el=$('#condcard'); if(!el){ el=document.createElement('div'); el.id='condcard'; el.style.cssText='position:absolute;left:12px;bottom:64px;z-index:5;max-width:min(340px,calc(100% - 24px));background:color-mix(in srgb,var(--panel) 94%,transparent);border:1px solid var(--accent);border-radius:4px;padding:9px 11px;font:400 12px var(--f-body);color:var(--fg)'; stage.appendChild(el); }
+  const c=COND.list[COND.cur], Tm=(c.Tf+c.Ta)/2, f=n=>n.toLocaleString('en-GB');
+  el.innerHTML=`<div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b style="font:600 13px var(--f-head);letter-spacing:.04em;text-transform:uppercase">${c.t}</b><button id="condx" aria-label="Close" style="background:none;border:0;color:var(--fg);cursor:pointer;font-size:15px">\u00d7</button></div>
+   <div style="display:grid;grid-template-columns:auto auto;gap:2px 14px;margin:6px 0;font-family:var(--f-mono);font-size:11.5px"><span>Draught fwd / aft</span><span>${c.Tf.toFixed(2)} / ${c.Ta.toFixed(2)} m</span><span>Mean draught</span><span>${Tm.toFixed(2)} m</span><span>Trim</span><span>${(c.Ta-c.Tf).toFixed(2)} m by the stern</span><span>Freeboard amidships</span><span>${(19.1-Tm).toFixed(2)} m</span><span>Displacement</span><span>${f(c.disp)} t</span><span>Deadweight</span><span>${f(c.dwt)} t</span><span>Cargo</span><span>${f(c.cargo)} t</span><span>Ballast</span><span>${f(c.ballast)} t</span><span>Fuel</span><span>${f(c.bunk)} t</span></div>
+   <div class="muted" style="font-size:11.5px;line-height:1.4">${c.d}</div><div class="muted" style="font-size:10.5px;margin-top:5px">Illustrative figures for a 50,000 dwt MR tanker; use the approved loading manual and loading computer on board.</div>
+   <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:7px">${COND_ORDER.map(k=>`<button class="tbtn" data-cond="${k}" aria-pressed="${k===COND.cur}" style="padding:3px 7px;font-size:11px">${COND.list[k].t.replace(' (summer draught)','')}</button>`).join('')}</div>`;
+  el.querySelectorAll('[data-cond]').forEach(x=>x.onclick=()=>setCondition(x.dataset.cond)); $('#condx').onclick=()=>{ el.hidden=true; COND.hide=true; }; }
+function condTick(){ if(!ship||!COND.liq.length) return; const c=COND.list[COND.cur]; const el=$('#condcard'); if(el) el.hidden=!(mode==='ship'&&cutaway&&!COND.hide);
+  ship.updateMatrixWorld(true); const v=new THREE.Vector3();
+  for(const L of COND.liq){ const f=condFill(c,L.k)||0; const show=f>0.001&&L.o.visible; L.l.visible=!!show; if(!show) continue;
+    v.set(L.cx,L.y0+(L.y1-L.y0)*Math.min(1,f),L.cz); L.l.updateMatrixWorld(); v.applyMatrix4(L.l.matrixWorld); L.plane.constant=v.y; } }
+// ================= weather and sea-keeping model: Beaufort sea states, waves the ship actually floats on, and her motions
+// Waves: three Gerstner-type components round the peak period (WMO Beaufort table: wind, significant wave height).
+// Motions: the hull samples the wave surface at 10 points (a ship averages out waves much shorter than herself); roll,
+// pitch and heave then follow as damped oscillators with their own natural periods, so roll builds up when the
+// encounter period comes close to the roll period (IMO 2008 IS Code roll period formula; GM from the loading condition).
+const WX={bf:4,hd:150,list:{
+ 2:{t:'Beaufort 2 \u00b7 light breeze',wind:'4\u20136 kn',Hs:0.3,Tp:3.0,loss:0.0,d:'Small wavelets, crests glassy, not breaking.'},
+ 4:{t:'Beaufort 4 \u00b7 moderate breeze',wind:'11\u201316 kn',Hs:1.0,Tp:5.0,loss:0.03,d:'Small waves becoming longer; fairly frequent white horses.'},
+ 6:{t:'Beaufort 6 \u00b7 strong breeze',wind:'22\u201327 kn',Hs:3.0,Tp:8.0,loss:0.10,d:'Large waves forming; white foam crests extensive everywhere; probably some spray.'},
+ 8:{t:'Beaufort 8 \u00b7 gale',wind:'34\u201340 kn',Hs:5.5,Tp:10.0,loss:0.25,d:'Moderately high waves of greater length; edges of crests break into spindrift; foam blown in well-marked streaks.'}},
+ HD:{180:'Head seas',150:'Bow seas',90:'Beam seas',30:'Quarter seas',0:'Following seas'},
+ u:{uW:{value:[new THREE.Vector4(),new THREE.Vector4(),new THREE.Vector4()]},uWo:{value:new THREE.Vector3()},uWT:{value:0},uWA:{value:0},uWC:{value:0}},
+ st:{r:0,rv:0,p:0,pv:0,h:0,hv:0,rmax:0,pmax:0,hmax:0,t0:0}, adv:0, t:0};
+const GM={light:14,bdep:9.5,barr:9.0,load:6.0,part:3.2,full:2.4};
+function wxSetup(){ const L=WX.list[WX.bf], g=9.81; const T=[L.Tp,L.Tp*0.8,L.Tp*1.25], A=[0.5*L.Hs*0.72,0.5*L.Hs*0.45,0.5*L.Hs*0.42], D=[0,22,-18];
+  // wave direction in the ship frame: hd = 180 means waves coming from ahead, i.e. travelling towards the stern (-x)
+  for(let i=0;i<3;i++){ const w=2*Math.PI/T[i], k=w*w/g, a=(WX.hd+D[i])*Math.PI/180; WX.u.uW.value[i].set(Math.cos(a),Math.sin(a),k,A[i]); WX.u.uWo.value.setComponent(i,w); }
+  WX.u.uWC.value=WX.bf>=4?Math.min(1,(WX.bf-3)/4):0; WX.st.rmax=WX.st.pmax=WX.st.hmax=0; WX.st.t0=WX.t; }
+function wxH(x,z){ let h=0; const W=WX.u.uW.value,o=WX.u.uWo.value; for(let i=0;i<3;i++){ const w=W[i]; h+=w.w*Math.cos(w.z*(w.x*(x+WX.adv)+w.y*z)-o.getComponent(i)*WX.t); } return h; }
+const WX_GLSL=`uniform vec4 uW[3]; uniform vec3 uWo; uniform float uWT; uniform float uWA;
+vec3 wxWave(vec2 p){ vec3 r=vec3(0.); for(int i=0;i<3;i++){ vec4 w=uW[i]; float ph=w.z*dot(w.xy,p+vec2(uWA,0.))-uWo[i]*uWT; r.x+=w.w*cos(ph); r.yz+=-w.w*w.z*sin(ph)*w.xy; } return r; }`;
+function wxPatchSea(w){ // displaced, slope-lit sea surface
+  Object.assign(w.material.uniforms,WX.u);
+  w.material.vertexShader=w.material.vertexShader.replace('varying vec4 worldPosition;','varying vec4 worldPosition; varying vec3 vWN; varying float vWH;\n'+WX_GLSL)
+    .replace('mirrorCoord = modelMatrix * vec4( position, 1.0 );','vec4 wp0=modelMatrix*vec4(position,1.0); float fall=1.0-smoothstep(900.0,2600.0,length(wp0.xz-vec2(90.0,0.0))); vec3 wv=wxWave(vec2(wp0.x,-wp0.z))*fall; wp0.y+=wv.x; vWH=wv.x; vWN=normalize(vec3(-wv.y,1.0,wv.z)); mirrorCoord=wp0;')
+    .replace('vec4 mvPosition =  modelViewMatrix * vec4( position, 1.0 );','vec4 mvPosition = viewMatrix * wp0;');
+  w.material.fragmentShader=w.material.fragmentShader.replace('varying vec4 worldPosition;','varying vec4 worldPosition; varying vec3 vWN; varying float vWH; uniform float uWC; uniform vec4 uW[3];')
+    .replace('vec3 surfaceNormal = normalize( noise.xzy * vec3( 1.5, 1.0, 1.5 ) );','vec3 surfaceNormal = normalize( normalize( noise.xzy * vec3( 1.5, 1.0, 1.5 ) )*0.55+vWN*0.45 );')
+    .replace('vec3 outgoingLight = albedo;','float wcap=uWC*smoothstep(0.35,1.0,vWH/max(0.01,uW[0].w+uW[1].w+uW[2].w))*smoothstep(0.55,0.85,noise.w*0.5+0.5); vec3 outgoingLight = mix(albedo,vec3(0.86,0.9,0.92),wcap*0.8);');
+  w.material.needsUpdate=true; }
+function wxSeaGeometry(){ // polar grid round the ship: about 2 m cells near the hull, growing towards the horizon
+  const P=[],I=[], NA=160; let r=0, rings=[0]; for(let s=1.6; r<3000; ){ r+=s; rings.push(r); s*=1.035; }
+  P.push(0,0,0); for(let j=1;j<rings.length;j++) for(let i=0;i<NA;i++){ const a=i/NA*Math.PI*2; P.push(rings[j]*Math.cos(a),rings[j]*Math.sin(a),0); }
+  for(let i=0;i<NA;i++) I.push(0,1+i,1+(i+1)%NA);
+  for(let j=1;j<rings.length-1;j++){ const b=1+(j-1)*NA, c=1+j*NA; for(let i=0;i<NA;i++){ const i2=(i+1)%NA; I.push(b+i,c+i,c+i2, b+i,c+i2,b+i2); } }
+  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.Float32BufferAttribute(P,3)); g.setAttribute('normal',new THREE.Float32BufferAttribute(new Float32Array(P.length).map((v,k)=>k%3===2?1:0),3)); g.setIndex(I); return g; }
+const WX_PTS=(()=>{ const a=[]; for(const x of [8,50,90,130,172]) for(const z of [-13,13]) a.push([x,z]); return a; })();
+function wxTick(dt){ if(!ship) return; WX.t+=dt; WX.u.uWT.value=WX.t; WX.adv=flowX; WX.u.uWA.value=WX.adv;
+  const c=COND.list[COND.cur], Tm=(c.Tf+c.Ta)/2, B_=32.2, Lw=174, g=9.81;
+  const C=0.373+0.023*(B_/Tm)-0.043*(Lw/100), Tr=2*C*B_/Math.sqrt(GM[COND.cur]||3), wr=2*Math.PI/Tr, wp=2*Math.PI/7.2, wh=2*Math.PI/8.0;
+  let hs=0, sx=0, sxx=0, sxh=0, rs=0; const n=WX_PTS.length;
+  for(const [x,z] of WX_PTS){ const h=wxH(x,-z)/*three z = -Blender y*/; hs+=h; sx+=x; sxx+=x*x; sxh+=x*h; rs+=(z<0?1:-1)*h; }
+  const hm=hs/n, slope=(sxh-sx*hs/n)/(sxx-sx*sx/n), roll=rs/(n/2)/26*0.75;
+  const S=WX.st, sub=Math.max(1,Math.ceil(dt/0.01)), h=dt/sub;
+  for(let k=0;k<sub;k++){ S.rv+=h*(wr*wr*(roll-S.r)-2*0.06*wr*S.rv); S.r+=h*S.rv; S.pv+=h*(wp*wp*(slope-S.p)-2*0.5*wp*S.pv); S.p+=h*S.pv; S.hv+=h*(wh*wh*(hm-S.h)-2*0.45*wh*S.hv); S.h+=h*S.hv; }
+  if(WX.t-S.t0>8){ S.rmax=Math.max(S.rmax*0.9995,Math.abs(S.r)); S.pmax=Math.max(S.pmax*0.9995,Math.abs(S.p)); S.hmax=Math.max(S.hmax*0.9995,Math.abs(S.h)); }
+  WX.Tr=Tr; const L=WX.list[WX.bf], w0=2*Math.PI/L.Tp, mu=WX.hd*Math.PI/180, V=VOY.underway?VOY.speed:0;
+  WX.Te=2*Math.PI/Math.max(0.05,Math.abs(w0-(w0*w0/g)*V*Math.cos(mu))); }
+function wxCard(){ let el=$('#wxcard'); if(!el){ el=document.createElement('div'); el.id='wxcard'; el.style.cssText='position:absolute;right:12px;bottom:64px;z-index:5;max-width:min(330px,calc(100% - 24px));background:color-mix(in srgb,var(--panel) 94%,transparent);border:1px solid var(--accent);border-radius:4px;padding:9px 11px;font:400 12px var(--f-body);color:var(--fg)'; stage.appendChild(el); }
+  const L=WX.list[WX.bf];
+  el.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center"><b style="font:600 13px var(--f-head);letter-spacing:.04em;text-transform:uppercase">Weather and ship motion</b><button id="wxx" aria-label="Close" style="background:none;border:0;color:var(--fg);cursor:pointer;font-size:15px">\u00d7</button></div>
+  <div style="display:flex;flex-wrap:wrap;gap:4px;margin:6px 0">${[2,4,6,8].map(b=>`<button class="tbtn" data-bf="${b}" aria-pressed="${b===WX.bf}" style="padding:3px 7px;font-size:11px">Bf ${b}</button>`).join('')}</div>
+  <div style="display:flex;flex-wrap:wrap;gap:4px;margin:0 0 6px">${Object.entries(WX.HD).map(([k,v])=>`<button class="tbtn" data-hd="${k}" aria-pressed="${+k===WX.hd}" style="padding:3px 7px;font-size:11px">${v}</button>`).join('')}</div>
+  <div class="muted" style="font-size:11.5px">${L.t}: ${L.d}</div><div id="wxlive" style="display:grid;grid-template-columns:auto auto;gap:2px 14px;margin-top:6px;font-family:var(--f-mono);font-size:11.5px"></div>
+  <div class="muted" style="font-size:10.5px;margin-top:5px">Simplified sea-keeping model for training (waves from the WMO Beaufort table; roll period from the IMO 2008 IS Code); not for navigational decisions.</div>`;
+  el.querySelectorAll('[data-bf]').forEach(b=>b.onclick=()=>{ WX.bf=+b.dataset.bf; wxSetup(); wxCard(); toast(WX.list[WX.bf].t); });
+  el.querySelectorAll('[data-hd]').forEach(b=>b.onclick=()=>{ WX.hd=+b.dataset.hd; wxSetup(); wxCard(); });
+  $('#wxx').onclick=()=>{ el.hidden=true; }; el.hidden=false; }
+let wxLiveT=0;
+function wxLive(t){ const el=$('#wxlive'); if(!el||el.offsetParent===null||t-wxLiveT<0.4) return; wxLiveT=t; const L=WX.list[WX.bf], S=WX.st;
+  const kn=VOY.underway?VOY.speed/0.5144:0, sync=Math.abs(WX.Te-WX.Tr)/WX.Tr<0.2, para=(WX.hd>=150||WX.hd<=30)&&Math.abs(WX.Te-WX.Tr/2)/(WX.Tr/2)<0.2;
+  el.innerHTML=[['Wind',L.wind],['Significant wave height',L.Hs.toFixed(1)+' m'],['Wave period / length',L.Tp.toFixed(0)+' s / '+Math.round(9.81*L.Tp*L.Tp/(2*Math.PI))+' m'],['Encounter period',WX.Te.toFixed(1)+' s'],
+   ['Natural roll period (GM '+(GM[COND.cur]||3).toFixed(1)+' m)',WX.Tr.toFixed(1)+' s'],['Roll (max)',(S.rmax*57.3).toFixed(1)+'\u00b0'],['Pitch (max)',(S.pmax*57.3).toFixed(1)+'\u00b0'],['Heave (max)',S.hmax.toFixed(1)+' m'],
+   ['Speed through water',(kn*(1-L.loss*Math.max(0,-Math.cos(WX.hd*Math.PI/180+Math.PI)))).toFixed(1)+' kn']].map(([a,b])=>`<span>${a}</span><span>${b}</span>`).join('')+
+   (sync?'<span style="grid-column:1/3;color:var(--warn,#f0a030)">Encounter period close to roll period: synchronous rolling risk \u2014 alter course or speed (IMO MSC.1/Circ.1228).</span>':'')+
+   (para?'<span style="grid-column:1/3;color:var(--warn,#f0a030)">Encounter period about half the roll period in head/following seas: parametric rolling risk (MSC.1/Circ.1228).</span>':''); }
+// ================= surface realism: photo-scanned CC0 detail (paint texture, wear, roughness variation) on every painted part
+const DET={}; const DETL=new THREE.TextureLoader();
+function detTex(n){ if(DET[n]) return DET[n]; const t=DETL.load('tex/d_'+n+'.jpg'); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.colorSpace=THREE.NoColorSpace; t.anisotropy=8; return DET[n]=t; }
+const DET_SKIP=/(Glass|Screen|Scr_|Dec_|Tx_|png|Lens|Water|LLL|FLAG|Light|Wake|Foam|Flame|Skin|Mimic|Dial|Retro|Reflect|HiViz|Rope|Manila|Line|Hose|Fabric|Wood|Tile|Sky|Sea)/i;
+function detPick(name,c){ const hsl={}; c.getHSL(hsl);
+  if(/Floor|ECRFloor/i.test(name)) return ['floor',0.8,0.9]; if(/Walk|NonSlip/i.test(name)) return ['deck',0.5,0.5];
+  if(/Steel|Stainless|Machined|Chrome|Brass|Bronze|Chain|Grating|Anode/i.test(name)) return ['steel',0.6,0.35];
+  if(hsl.l>0.62&&hsl.s<0.3) return ['streak',0.25,0.32]; if(hsl.s>0.45) return ['paint',0.55,0.3]; return ['mach',0.4,0.45]; }
+function detPatch(m,set,scale,str){ if(m.userData.det) return; m.userData.det=1; const tex=detTex(set);
+  const prev=m.onBeforeCompile; m.onBeforeCompile=(sh,r)=>{ if(prev) prev(sh,r); sh.uniforms.uDet={value:tex}; sh.uniforms.uDS={value:str}; sh.uniforms.uDSc={value:scale};
+    sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vWPd; varying vec3 vWNd;').replace('#include <begin_vertex>','#include <begin_vertex>\nvWPd=(modelMatrix*vec4(transformed,1.0)).xyz; vWNd=normalize(mat3(modelMatrix)*objectNormal);');
+    sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 vWPd; varying vec3 vWNd; uniform sampler2D uDet; uniform float uDS; uniform float uDSc;')
+      .replace('#include <map_fragment>','#include <map_fragment>\nvec3 dbw=pow(abs(normalize(vWNd)),vec3(4.0)); dbw/=(dbw.x+dbw.y+dbw.z); vec3 dtx=texture2D(uDet,vWPd.zy*uDSc).rgb*dbw.x+texture2D(uDet,vWPd.xz*uDSc).rgb*dbw.y+texture2D(uDet,vWPd.xy*uDSc).rgb*dbw.z;\ndiffuseColor.rgb*=mix(1.0,clamp(dtx.r*2.0,0.25,1.6),uDS);')
+      .replace('#include <roughnessmap_fragment>','#include <roughnessmap_fragment>\nroughnessFactor=clamp(roughnessFactor*mix(1.0,0.55+dtx.g*0.9,uDS),0.04,1.0);'); };
+  const k=m.customProgramCacheKey?m.customProgramCacheKey():''; m.customProgramCacheKey=()=>k+'|det'; m.needsUpdate=true; }
+function shipDetail(){ let n=0; const seen=new Map();
+  ship.traverse(o=>{ if(!o.isMesh||o.userData.liq) return; const mats=Array.isArray(o.material)?o.material:[o.material];
+    for(const m of mats){ if(!m||!m.isMeshStandardMaterial||m.transparent||m.map||DET_SKIP.test(m.name||'')||DET_SKIP.test(o.name)) continue;
+      if(m.emissive&&m.emissive.getHex()!==0&&m.emissiveIntensity>0) continue;
+      if(/^(COT_|WBT_|SLOP_|COFF_|ER_|FPT|TK_|hs_|WK_|Hull)/.test(o.name)||/^Hull_/.test(m.name||'')||m.userData.hull||m.onBeforeCompile&&String(m.onBeforeCompile).includes('vNy')) continue;
+      if(seen.has(m)) continue; const [s,sc,st]=detPick(m.name||'',m.color); detPatch(m,s,sc,st); seen.set(m,1); n++; } });
+  return n; }
 // ================= voyage: under way (sea flowing past, bow wave and wake, ship motion), night mode with navigation lights,
 // day shapes, live radar/ECDIS/conning screens, and zoom-to-enter
 const VOY={underway:true,night:false,lights:'underway',speed:6.8};   // 13.2 knots
 const FOAM=[]; const WIN=[]; const SCREENS={};
-const foamMat=(kind)=>{ const m=new THREE.ShaderMaterial({transparent:true,side:THREE.DoubleSide,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,uniforms:{uT:SEA_T,uS:{value:VOY.speed},uNight:{value:0}},
-  vertexShader:'varying vec2 vUv; varying vec3 vW; void main(){ vUv=uv; vec4 w=modelMatrix*vec4(position,1.); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }',
+const foamMat=(kind)=>{ const m=new THREE.ShaderMaterial({transparent:true,side:THREE.DoubleSide,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,uniforms:Object.assign({uT:SEA_T,uS:{value:VOY.speed},uNight:{value:0}},WX.u),
+  vertexShader:WX_GLSL+'varying vec2 vUv; varying vec3 vW; void main(){ vUv=uv; vec4 w=modelMatrix*vec4(position,1.); w.y+=wxWave(vec2(w.x,-w.z)).x; vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }',
   fragmentShader:`uniform float uT; uniform float uS; uniform float uNight; varying vec2 vUv; varying vec3 vW;
     float h(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
     float n(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.-2.*f); return mix(mix(h(i),h(i+vec2(1,0)),f.x),mix(h(i+vec2(0,1)),h(i+vec2(1,1)),f.x),f.y); }
@@ -1954,14 +2193,18 @@ function dayRestoreSea(){ if(sea&&sea.material.uniforms){ sea.material.uniforms.
 // ship motion and flowing sea while under way
 let flowX=0; const _qm=new THREE.Quaternion(), _em=new THREE.Euler(), PIV=B(90,0,11);
 function voyageTick(t,dt){ const go=VOY.underway&&mode==='ship'&&!cutaway&&!shipAnim&&shipGroup.visible; const ext=controls.minDistance>=10;
-  if(sea&&sea.material.uniforms&&sea.material.uniforms.flow){ if(go) flowX+=VOY.speed*dt; sea.material.uniforms.flow.value.set(flowX,0); }
+  if(sea&&sea.material.uniforms&&sea.material.uniforms.flow){ if(go) flowX+=VOY.speed*(1-WX.list[WX.bf].loss*Math.max(0,-Math.cos(WX.hd*Math.PI/180+Math.PI)))*dt; sea.material.uniforms.flow.value.set(flowX,0); }
   for(const f of FOAM){ f.visible=go&&!uwOn; f.material.uniforms.uS.value=VOY.speed; }
   if(!ship) return;
   if(!voyageTick.f){ voyageTick.f={g:ship.getObjectByName('FLAG_GaffEnsign'),s:ship.getObjectByName('FLAG_Ensign')}; }
   if(!voyageTick.f.b){ voyageTick.f.b=['FLAG_B','FLAG_RedLight'].map(n=>ship.getObjectByName(n)).filter(Boolean); }
   { const fl=voyageTick.f; if(fl.g) fl.g.visible=VOY.underway; if(fl.s) fl.s.visible=!VOY.underway; fl.b.forEach(o=>o.visible=!VOY.underway); }
-  if(go&&ext&&!reduce){ _em.set(Math.sin(t*0.571)*0.010, 0, Math.sin(t*0.838)*0.0045,'XYZ'); _qm.setFromEuler(_em); ship.quaternion.copy(_qm); ship.position.copy(PIV).sub(PIV.clone().applyQuaternion(_qm)); ship.position.y+=Math.sin(t*0.62)*0.12; }
-  else { ship.quaternion.identity(); ship.position.set(0,0,0); } }
+  const _M=voyageTick._M||(voyageTick._M=new THREE.Matrix4());
+  if(voyageAttach.subm) for(const o of voyageAttach.subm) o.visible=!!shipAnim;
+  const flt=mode==='ship'&&!cutaway&&!shipAnim&&shipGroup.visible&&ext&&!reduce;
+  if(flt){ _em.set(WX.st.r, 0, WX.st.p,'XYZ'); _qm.setFromEuler(_em); _M.compose(PIV.clone().sub(PIV.clone().applyQuaternion(_qm)).add(new THREE.Vector3(0,WX.st.h,0)),_qm,new THREE.Vector3(1,1,1)); }
+  else _M.identity();
+  _M.multiply(COND.Mc); _M.decompose(ship.position,ship.quaternion,ship.scale); }
 // propeller wash: a helical stream of bubbles and a turbulent column behind the propeller, and foam flecks on the sea
 // sliding aft along the hull, so the ship is seen to be making way both above and below the water
 const WASH={on:false};
@@ -2027,6 +2270,12 @@ let scrT=0;
 function screensTick(t){ if(!ship) return; if(t-scrT<0.08) return; scrT=t; const near=camera.position.distanceTo(B(27,0,33))<40; if(!near) return;
   drawRadar(SCREENS.radar_x,'x',t); drawRadar(SCREENS.radar_s,'s',t); drawEcdis(SCREENS.ecdis_1,t,true); drawEcdis(SCREENS.ecdis_2,t+20,false); drawConning(SCREENS.conning,t); }
 function voyageAttach(){ // called once the ship is loaded
+  ship.traverse(o=>{ if(/^CREW_/.test(o.name)) o.visible=false; });
+  { const bb=new THREE.Box3(); ship.updateMatrixWorld(true); voyageAttach.subm=[];   // animation props parked under the sea surface: keep them hidden so waves never uncover them
+    ship.children.forEach(o=>{ if(/^(Hull|WK_|COT_|WBT_|SLOP_|FPT|COFF_|ER_|TK_|APP_|hs_|ENV_)/.test(o.name)) return; bb.setFromObject(o); if(bb.isEmpty()) return;
+      if(bb.max.y<10.6&&(Math.abs(bb.min.z)>16.4||Math.abs(bb.max.z)>16.4||bb.max.x<-6||bb.min.x>185)) voyageAttach.subm.push(o); }); }
+  if(!/nodet/.test(location.search)) try{ shipDetail(); }catch(e){ console.error(e); }   // low-poly crew figures withdrawn until realistic people replace them
+  setTimeout(()=>{ try{ condAttach(); }catch(e){ console.error(e); } },0);
   ship.traverse(o=>{ if(!o.isMesh) return; const mn=(o.material&&o.material.name)||'';
     if(/^WK_/.test(o.name)){ const kind=/Wake/.test(o.name)?'wake':(/BowWave/.test(o.name)?'bow':'hull'); o.material=foamMat(kind); o.renderOrder=4; o.castShadow=false; o.receiveShadow=false; FOAM.push(o); }
     const m=/BRG_Scr_(radar_x|radar_s|ecdis_1|ecdis_2|conning)\.png/.exec(mn);
@@ -2038,8 +2287,8 @@ function voyageAttach(){ // called once the ship is loaded
   // Kelvin wave arms at 19.5 deg either side of the track from bow and stern, all on the sea surface
   { const old=FOAM.findIndex(f=>f.name==='WK_Wake'); if(old>=0){ FOAM[old].visible=false; FOAM[old].userData.off=1; FOAM.splice(old,1); }
     const g=new THREE.PlaneGeometry(1000,640,1,1); g.rotateX(-Math.PI/2); g.translate(-310,0,0);
-    const m=new THREE.ShaderMaterial({transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,uniforms:{uT:SEA_T,uS:{value:VOY.speed},uNight:{value:0}},
-      vertexShader:'varying vec2 vP; void main(){ vP=vec2(position.x,-position.z); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }',
+    const m=new THREE.ShaderMaterial({transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,uniforms:Object.assign({uT:SEA_T,uS:{value:VOY.speed},uNight:{value:0}},WX.u),
+      vertexShader:WX_GLSL+'varying vec2 vP; void main(){ vP=vec2(position.x,-position.z); vec4 w=modelMatrix*vec4(position,1.); w.y+=wxWave(vec2(w.x,-w.z)).x; gl_Position=projectionMatrix*viewMatrix*w; }',
       fragmentShader:`uniform float uT; uniform float uS; uniform float uNight; varying vec2 vP;
         float h(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
         float n(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.-2.*f); return mix(mix(h(i),h(i+vec2(1,0)),f.x),mix(h(i+vec2(0,1)),h(i+vec2(1,1)),f.x),f.y); }
