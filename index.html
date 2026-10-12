@@ -239,7 +239,7 @@ function flyTo(pos,target,dur=2.6){tween={p0:camera.position.clone(),t0:controls
 const loader=new GLTFLoader(); { const dl=new DRACOLoader(); dl.setDecoderPath('./'); dl.setDecoderConfig({type:'js'}); loader.setDRACOLoader(dl); }
 const b64=s=>{const bin=atob(s),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u.buffer;};
 const loaded={};
-const BUILD='39';   // bump on every release so browsers fetch the new model files (deploy_site.py does this automatically)
+const BUILD='40';   // bump on every release so browsers fetch the new model files (deploy_site.py does this automatically)
 const BUILD_DATE='2026-10-12';
 { const v=document.getElementById('ver'); if(v) v.textContent='v1.'+BUILD+' \u00b7 '+BUILD_DATE; }
 // ---- photographic sky (CC0 HDRI, Poly Haven 'kloofendal 48d partly cloudy, pure sky'): background, reflections, sun direction and haze colour
@@ -255,7 +255,13 @@ function skyLoaded(tex){ try{
   SKY.bg=tex; skyEnv=pmrem.fromEquirectangular(tex).texture; sky.material.visible=false;
   if(sea&&sea.material.uniforms&&sea.material.uniforms.sunDirection) sea.material.uniforms.sunDirection.value.copy(sunDir);
   shipEnvOn=null; }catch(e){ console.warn('sky',e); } }
-{ const L_=new RGBELoader().setDataType(THREE.HalfFloatType); L_.load('tex/sky_2k.hdr?v='+BUILD,skyLoaded,undefined,()=>L_.load('tex/sky_2k_hdr.txt?v='+BUILD,skyLoaded)); }
+{ const L_=new RGBELoader().setDataType(THREE.HalfFloatType); L_.load('tex/sky_2k.hdr?v='+BUILD,skyLoaded,undefined,()=>skyPng()); }
+function skyPng(){ // fallback where .hdr cannot be served: RGBE split into a mantissa PNG and an exponent PNG
+  const ld=src=>new Promise((ok,no)=>{ const i=new Image(); i.crossOrigin='anonymous'; i.onload=()=>ok(i); i.onerror=no; i.src=src+'?v='+BUILD; });
+  Promise.all([ld('tex/sky_2k_m.png'),ld('tex/sky_2k_e.png')]).then(([m,e])=>{ const W=m.width,H=m.height; const px=im=>{ const c=document.createElement('canvas'); c.width=W; c.height=H; const g=c.getContext('2d',{willReadFrequently:true}); g.drawImage(im,0,0); return g.getImageData(0,0,W,H).data; };
+    const M=px(m), E=px(e), out=new Uint16Array(W*H*4), th=THREE.DataUtils.toHalfFloat;
+    for(let i=0;i<W*H;i++){ const ex=E[i*4]; const f=ex?Math.pow(2,ex-136):0; out[i*4]=th(M[i*4]*f); out[i*4+1]=th(M[i*4+1]*f); out[i*4+2]=th(M[i*4+2]*f); out[i*4+3]=th(1); }
+    const t=new THREE.DataTexture(out,W,H,THREE.RGBAFormat,THREE.HalfFloatType); t.colorSpace=THREE.LinearSRGBColorSpace; t.minFilter=t.magFilter=THREE.LinearFilter; t.generateMipmaps=false; t.flipY=true; t.needsUpdate=true; skyLoaded(t); }).catch(e=>console.warn('sky png',e)); }
 function loadModel(key){
   if(loaded[key]) return loaded[key];
   loaded[key]=new Promise((res,rej)=>{
