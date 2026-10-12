@@ -147,7 +147,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 
 <div class="app">
 <header>
-  <div class="brand">MR Tanker Walkthrough<small>ISF Group &#xb7; 3D technical training &#xb7; v1.1</small></div>
+  <div class="brand">MR Tanker Walkthrough<small>ISF Group &#xb7; 3D technical training &#xb7; <span id="ver">v1.1</span></small></div>
   <nav class="crumbs" id="crumbs" aria-label="Location"></nav>
   <span class="chip">Draft &#xb7; pending SME sign-off</span>
 </header>
@@ -177,6 +177,7 @@ import {DRACOLoader} from 'three/addons/loaders/DRACOLoader.js';
 import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
 import {Sky} from 'three/addons/objects/Sky.js';
 import {Water} from 'three/addons/objects/Water.js';
+import {RGBELoader} from 'three/addons/loaders/RGBELoader.js';
 import {EffectComposer} from 'three/addons/postprocessing/EffectComposer.js';
 import {RenderPass} from 'three/addons/postprocessing/RenderPass.js';
 import {GTAOPass} from 'three/addons/postprocessing/GTAOPass.js';
@@ -208,7 +209,7 @@ renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 const SUN_EL=24, SUN_AZ=-140;                                     // degrees: sun elevation and azimuth (from the ship's bow, to port positive)
 const sunDir=new THREE.Vector3().setFromSphericalCoords(1,THREE.MathUtils.degToRad(90-SUN_EL),THREE.MathUtils.degToRad(SUN_AZ));
 const sky=new Sky(); sky.scale.setScalar(1500); { const u=sky.material.uniforms; u.turbidity.value=2.6; u.rayleigh.value=1.9; u.mieCoefficient.value=0.003; u.mieDirectionalG.value=0.82; u.sunPosition.value.copy(sunDir); }
-const skyEnv=(()=>{ const sc=new THREE.Scene(); const s2=new Sky(); s2.scale.setScalar(1000); s2.material.uniforms.sunPosition.value.copy(sunDir); s2.material.uniforms.turbidity.value=2.6; s2.material.uniforms.rayleigh.value=1.9; sc.add(s2); return pmrem.fromScene(sc,0.0).texture; })();
+let skyEnv=(()=>{ const sc=new THREE.Scene(); const s2=new Sky(); s2.scale.setScalar(1000); s2.material.uniforms.sunPosition.value.copy(sunDir); s2.material.uniforms.turbidity.value=2.6; s2.material.uniforms.rayleigh.value=1.9; sc.add(s2); return pmrem.fromScene(sc,0.0).texture; })();
 const roomEnv=scene.environment;
 const erLights=new THREE.Group(); for(const [x,y,z] of [[14,0,13],[26,0,13],[20,0,7.5],[2,0,16.5]]){ const l=new THREE.PointLight(0xfff1e0,30,18,1.6); l.position.copy(B(x,y,z)); erLights.add(l); } erLights.visible=false; scene.add(erLights);
 const fogShip=new THREE.FogExp2(0xa9bfd2,0.00055);
@@ -219,10 +220,10 @@ function waterNormals(){ const N=256, h=new Float32Array(N*N), W=[]; let seed=7;
     const n=new THREE.Vector3(-dx*0.9,-dy*0.9,1).normalize(); d[i*4]=(n.x*.5+.5)*255; d[i*4+1]=(n.y*.5+.5)*255; d[i*4+2]=(n.z*.5+.5)*255; d[i*4+3]=255; }
   const t=new THREE.DataTexture(d,N,N); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.needsUpdate=true; return t; }
 const WNORM=waterNormals();
-function makeOcean(){ const w=new Water(wxSeaGeometry(),{textureWidth:512,textureHeight:512,waterNormals:WNORM,sunDirection:sunDir.clone(),sunColor:0xfff4e0,waterColor:0x082a3e,distortionScale:2.2,fog:true,alpha:1.0});
-  w.rotation.x=-Math.PI/2; w.material.uniforms.size.value=2.2; wxPatchSea(w); wxSetup(); return w; }
+function makeOcean(){ const w=new Water(wxSeaGeometry(),{textureWidth:512,textureHeight:512,waterNormals:WNORM,sunDirection:sunDir.clone(),sunColor:0xfff4e0,waterColor:0x0e4266,distortionScale:3.0,fog:true,alpha:1.0});
+  w.rotation.x=-Math.PI/2; w.material.uniforms.size.value=1.4; w.material.fragmentShader=w.material.fragmentShader.replace('float rf0 = 0.3;','float rf0 = 0.07;').replace('vec3( 0.1 ) + reflectionSample * 0.9','vec3( 0.02 ) + reflectionSample * 0.85'); wxPatchSea(w); wxSetup(); return w; }
 let shipEnvOn=null;
-function shipEnv(on){ if(on===shipEnvOn) return; shipEnvOn=on; scene.environment=on?skyEnv:roomEnv; scene.fog=on?fogShip:null; scene.background=on?null:new THREE.Color('#0f161e');
+function shipEnv(on){ if(on===shipEnvOn) return; shipEnvOn=on; scene.environment=on?skyEnv:roomEnv; scene.fog=on?fogShip:null; scene.background=on?(SKY.bg||null):new THREE.Color('#0f161e');
   hemi.intensity=on?0.35:0.6; sun.intensity=on?2.6:1.4; sun.castShadow=on; renderer.toneMappingExposure=on?0.62:1.05;
   if(on){ sun.position.copy(sunDir).multiplyScalar(260).add(B(90,0,0)); sun.target.position.copy(B(90,0,10)); } else sun.position.set(60,120,80); }
 { const c=sun.shadow.camera; c.left=-120; c.right=120; c.top=60; c.bottom=-60; c.near=10; c.far=600; sun.shadow.mapSize.set(4096,2048); sun.shadow.bias=-0.0004; sun.shadow.normalBias=0.04; }
@@ -238,7 +239,22 @@ function flyTo(pos,target,dur=2.6){tween={p0:camera.position.clone(),t0:controls
 const loader=new GLTFLoader(); { const dl=new DRACOLoader(); dl.setDecoderPath('./'); dl.setDecoderConfig({type:'js'}); loader.setDRACOLoader(dl); }
 const b64=s=>{const bin=atob(s),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u.buffer;};
 const loaded={};
-const BUILD='37';   // bump on every release so browsers fetch the new model files
+const BUILD='38';   // bump on every release so browsers fetch the new model files (deploy_site.py does this automatically)
+const BUILD_DATE='2026-10-12';
+{ const v=document.getElementById('ver'); if(v) v.textContent='v1.'+BUILD+' \u00b7 '+BUILD_DATE; }
+// ---- photographic sky (CC0 HDRI, Poly Haven 'kloofendal 48d partly cloudy, pure sky'): background, reflections, sun direction and haze colour
+const SKY={bg:null};
+new RGBELoader().setDataType(THREE.HalfFloatType).load('tex/sky_2k.hdr?v='+BUILD, tex=>{ try{
+  tex.mapping=THREE.EquirectangularReflectionMapping;
+  const W=tex.image.width,H=tex.image.height,dh=tex.image.data, d={}; const hf=THREE.DataUtils.fromHalfFloat; const D_=(i)=>hf(dh[i]); let best=-1,bx=0,by=0; const hz=[0,0,0]; let hn=0;
+  for(let y=0;y<H/2;y+=2) for(let x=0;x<W;x+=2){ const i=(y*W+x)*4, L=D_(i)+D_(i+1)+D_(i+2); if(L>best){ best=L; bx=x; by=y; } }
+  for(let y=Math.floor(H*0.47);y<Math.floor(H*0.495);y++) for(let x=0;x<W;x+=4){ const i=(y*W+x)*4; hz[0]+=D_(i); hz[1]+=D_(i+1); hz[2]+=D_(i+2); hn++; }
+  const lat=(0.5-(by+0.5)/H)*Math.PI, phi=((bx+0.5)/W-0.5)*2*Math.PI;
+  sunDir.set(Math.cos(lat)*Math.cos(phi),Math.abs(Math.sin(lat)),Math.cos(lat)*Math.sin(phi)).normalize();
+  const k=1/Math.max(hn,1); fogShip.color.setRGB(hz[0]*k,hz[1]*k,hz[2]*k); fogShip.density=0.00045;
+  SKY.bg=tex; skyEnv=pmrem.fromEquirectangular(tex).texture; sky.material.visible=false;
+  if(sea&&sea.material.uniforms&&sea.material.uniforms.sunDirection) sea.material.uniforms.sunDirection.value.copy(sunDir);
+  shipEnvOn=null; }catch(e){ console.warn('sky',e); } });
 function loadModel(key){
   if(loaded[key]) return loaded[key];
   loaded[key]=new Promise((res,rej)=>{
@@ -1346,7 +1362,7 @@ async function initShip(){
     else if(APPRE.test(o.name)){ o.material=o.material.clone(); layer='app'; if(/Prop(Blades|Hub)/.test(o.name)) shipSpin.prop.push({o,q0:o.quaternion.clone()}); if(/Rudder(Blade|Stock)/.test(o.name)) shipSpin.rud.push({o,q0:o.quaternion.clone()}); }
     else { let hit=false; for(const [re,c,a,l] of SHIPMAT) if(re.test(o.name)){ o.material=new THREE.MeshStandardMaterial({color:c||o.material.color,transparent:true,opacity:a,depthWrite:false,side:THREE.DoubleSide,roughness:.7}); layer=l; hit=true; break; }
       if(!hit){ o.material=o.material.clone(); const k=Object.keys(deckMat).find(k=>o.material.name&&o.material.name.includes(k)); if(k) o.material.color.set(deckMat[k]); o.material.roughness=.5;
-        const mn=o.material.name||''; if(/^FLAG_flag/.test(mn)){ const fm=o.material; fm.side=THREE.DoubleSide; fm.alphaTest=0.5; fm.transparent=false; fm.onBeforeCompile=sh=>{ sh.uniforms.uT=SEA_T; sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nuniform float uT;').replace('#include <begin_vertex>','#include <begin_vertex>\nfloat fu=1.0-uv.y*0.0; float u_=uv.x; transformed.z+=0.16*u_*sin(u_*7.0-uT*6.0+position.y*0.8); transformed.y+=0.05*u_*sin(u_*5.0-uT*4.5); transformed.x+=0.04*u_*u_*sin(uT*3.0);'); }; fm.customProgramCacheKey=()=>'flag'; o.userData.noShadow=1; }
+        const mn=o.material.name||''; if(/^FLAG_flag/.test(mn)){ const fm=o.material; fm.side=THREE.DoubleSide; fm.alphaTest=0.5; fm.transparent=false; fm.depthWrite=true; fm.onBeforeCompile=sh=>{ sh.uniforms.uT=SEA_T; sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nuniform float uT;').replace('#include <begin_vertex>','#include <begin_vertex>\nfloat fu=1.0-uv.y*0.0; float u_=uv.x; transformed.z+=0.16*u_*sin(u_*7.0-uT*6.0+position.y*0.8); transformed.y+=0.05*u_*sin(u_*5.0-uT*4.5); transformed.x+=0.04*u_*u_*sin(uT*3.0);'); }; fm.customProgramCacheKey=()=>'flag'; o.userData.noShadow=1; }
         if(o.userData&&o.userData.spin) SPIN.push(o);
         if(/Grating/.test(mn)){ patternMat(o.material,'grat'); o.material.side=THREE.DoubleSide; o.userData.noShadow=1; } else if(/FloorPlate/.test(mn)) patternMat(o.material,'chq'); } }
     (layerObjs[layer]??=[]).push(o); });
@@ -1835,7 +1851,7 @@ function lifeTick(t){ SEA_T.value=t; const sea=11;
     S.im.instanceMatrix.needsUpdate=true; } }
 function uwTick(t){ UW.userData.surf.uniforms.t.value=t; UW.userData.surf.uniforms.cam.value.copy(camera.position); if(UW.userData.grad) UW.userData.grad.position.copy(camera.position); if(UW.userData.parts){ UW.userData.parts.position.y=Math.sin(t*0.1)*0.6; UW.userData.parts.position.x=-(flowX%60); } }
 let uwOn=false;
-function uwEnv(on){ if(on===uwOn) return; uwOn=on; UW.visible=on; sky.visible=!on; UWU.value=on?1:0; if(on){ scene.fog=uwFog; scene.background=null; scene.environment=roomEnv; hemi.color.set(0x8fd0d8); hemi.intensity=0.9; sun.intensity=0.9; sun.castShadow=false; renderer.toneMappingExposure=0.9; }
+function uwEnv(on){ if(on===uwOn) return; uwOn=on; if(!on) shipEnvOn=null; UW.visible=on; sky.visible=!on; UWU.value=on?1:0; if(on){ scene.fog=uwFog; scene.background=null; scene.environment=roomEnv; hemi.color.set(0x8fd0d8); hemi.intensity=0.9; sun.intensity=0.9; sun.castShadow=false; renderer.toneMappingExposure=0.9; }
   else { hemi.color.set(0xdfe8f2); shipEnvOn=null; } }
 const _sph=new THREE.Spherical(), _off=new THREE.Vector3();
 function orbitBy(dAz,dPol){ tween=null; _off.copy(camera.position).sub(controls.target); _sph.setFromVector3(_off);
@@ -2191,7 +2207,7 @@ function nightApply(){ // called every frame after the day/underwater environmen
   if(!n) return;
   scene.background=NIGHT.bg; scene.fog=NIGHT.fog; scene.environment=null; sky.visible=false; hemi.color.set(0x1a2233); hemi.groundColor&&hemi.groundColor.set(0x020304); hemi.intensity=0.06; sun.intensity=0.05; sun.color.set(0x8fa3c8); sun.castShadow=false; renderer.toneMappingExposure=0.85;
   if(sea&&sea.material.uniforms){ const u=sea.material.uniforms; u.sunColor.value.set(0x000000); u.waterColor.value.set(0x010407); if(u.distortionScale) u.distortionScale.value=0.6; } }
-function dayRestoreSea(){ if(sea&&sea.material.uniforms){ sea.material.uniforms.sunColor.value.set(0xfff4e0); sea.material.uniforms.waterColor.value.set(0x0b2f3d); if(sea.material.uniforms.distortionScale) sea.material.uniforms.distortionScale.value=2.2; } sun.color.set(0xffffff); hemi.color.set(0xdfe8f2); }
+function dayRestoreSea(){ if(sea&&sea.material.uniforms){ sea.material.uniforms.sunColor.value.set(0xfff4e0); sea.material.uniforms.waterColor.value.set(0x0e4266); if(sea.material.uniforms.distortionScale) sea.material.uniforms.distortionScale.value=2.2; } sun.color.set(0xffffff); hemi.color.set(0xdfe8f2); }
 // ship motion and flowing sea while under way
 let flowX=0; const _qm=new THREE.Quaternion(), _em=new THREE.Euler(), PIV=B(90,0,11);
 function voyageTick(t,dt){ const go=VOY.underway&&mode==='ship'&&!cutaway&&!shipAnim&&shipGroup.visible; const ext=controls.minDistance>=10;
