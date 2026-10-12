@@ -239,12 +239,12 @@ function flyTo(pos,target,dur=2.6){tween={p0:camera.position.clone(),t0:controls
 const loader=new GLTFLoader(); { const dl=new DRACOLoader(); dl.setDecoderPath('./'); dl.setDecoderConfig({type:'js'}); loader.setDRACOLoader(dl); }
 const b64=s=>{const bin=atob(s),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u.buffer;};
 const loaded={};
-const BUILD='38';   // bump on every release so browsers fetch the new model files (deploy_site.py does this automatically)
+const BUILD='39';   // bump on every release so browsers fetch the new model files (deploy_site.py does this automatically)
 const BUILD_DATE='2026-10-12';
 { const v=document.getElementById('ver'); if(v) v.textContent='v1.'+BUILD+' \u00b7 '+BUILD_DATE; }
 // ---- photographic sky (CC0 HDRI, Poly Haven 'kloofendal 48d partly cloudy, pure sky'): background, reflections, sun direction and haze colour
 const SKY={bg:null};
-new RGBELoader().setDataType(THREE.HalfFloatType).load('tex/sky_2k.hdr?v='+BUILD, tex=>{ try{
+function skyLoaded(tex){ try{
   tex.mapping=THREE.EquirectangularReflectionMapping;
   const W=tex.image.width,H=tex.image.height,dh=tex.image.data, d={}; const hf=THREE.DataUtils.fromHalfFloat; const D_=(i)=>hf(dh[i]); let best=-1,bx=0,by=0; const hz=[0,0,0]; let hn=0;
   for(let y=0;y<H/2;y+=2) for(let x=0;x<W;x+=2){ const i=(y*W+x)*4, L=D_(i)+D_(i+1)+D_(i+2); if(L>best){ best=L; bx=x; by=y; } }
@@ -254,7 +254,8 @@ new RGBELoader().setDataType(THREE.HalfFloatType).load('tex/sky_2k.hdr?v='+BUILD
   const k=1/Math.max(hn,1); fogShip.color.setRGB(hz[0]*k,hz[1]*k,hz[2]*k); fogShip.density=0.00045;
   SKY.bg=tex; skyEnv=pmrem.fromEquirectangular(tex).texture; sky.material.visible=false;
   if(sea&&sea.material.uniforms&&sea.material.uniforms.sunDirection) sea.material.uniforms.sunDirection.value.copy(sunDir);
-  shipEnvOn=null; }catch(e){ console.warn('sky',e); } });
+  shipEnvOn=null; }catch(e){ console.warn('sky',e); } }
+{ const L_=new RGBELoader().setDataType(THREE.HalfFloatType); L_.load('tex/sky_2k.hdr?v='+BUILD,skyLoaded,undefined,()=>L_.load('tex/sky_2k_hdr.txt?v='+BUILD,skyLoaded)); }
 function loadModel(key){
   if(loaded[key]) return loaded[key];
   loaded[key]=new Promise((res,rej)=>{
