@@ -219,7 +219,7 @@ function waterNormals(){ const N=256, h=new Float32Array(N*N), W=[]; let seed=7;
     const n=new THREE.Vector3(-dx*0.9,-dy*0.9,1).normalize(); d[i*4]=(n.x*.5+.5)*255; d[i*4+1]=(n.y*.5+.5)*255; d[i*4+2]=(n.z*.5+.5)*255; d[i*4+3]=255; }
   const t=new THREE.DataTexture(d,N,N); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.needsUpdate=true; return t; }
 const WNORM=waterNormals();
-function makeOcean(){ const w=new Water(wxSeaGeometry(),{textureWidth:512,textureHeight:512,waterNormals:WNORM,sunDirection:sunDir.clone(),sunColor:0xfff4e0,waterColor:0x0b2f3d,distortionScale:2.2,fog:true,alpha:1.0});
+function makeOcean(){ const w=new Water(wxSeaGeometry(),{textureWidth:512,textureHeight:512,waterNormals:WNORM,sunDirection:sunDir.clone(),sunColor:0xfff4e0,waterColor:0x082a3e,distortionScale:2.2,fog:true,alpha:1.0});
   w.rotation.x=-Math.PI/2; w.material.uniforms.size.value=2.2; wxPatchSea(w); wxSetup(); return w; }
 let shipEnvOn=null;
 function shipEnv(on){ if(on===shipEnvOn) return; shipEnvOn=on; scene.environment=on?skyEnv:roomEnv; scene.fog=on?fogShip:null; scene.background=on?null:new THREE.Color('#0f161e');
@@ -238,14 +238,15 @@ function flyTo(pos,target,dur=2.6){tween={p0:camera.position.clone(),t0:controls
 const loader=new GLTFLoader(); { const dl=new DRACOLoader(); dl.setDecoderPath('./'); dl.setDecoderConfig({type:'js'}); loader.setDRACOLoader(dl); }
 const b64=s=>{const bin=atob(s),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u.buffer;};
 const loaded={};
+const BUILD='34';   // bump on every release so browsers fetch the new model files
 function loadModel(key){
   if(loaded[key]) return loaded[key];
   loaded[key]=new Promise((res,rej)=>{
     const go=()=>loader.parse(b64(window.TM[key]),'',g=>{ g.scene.userData.clips=g.animations||[]; res(g.scene); },rej);
     if(window.TM&&window.TM[key]) return go();
-    const scr=src=>new Promise((ok,no)=>{ const s=document.createElement('script'); s.src=src; s.onload=ok; s.onerror=no; document.head.appendChild(s); });
+    const scr=src=>new Promise((ok,no)=>{ const s=document.createElement('script'); s.src=src+'?v='+BUILD; s.onload=ok; s.onerror=no; document.head.appendChild(s); });
     if(key==='ship'){ scr('m_ship.js').then(async()=>{ const n=window.TM.ship_n||0; if(n){ const parts=[]; for(let i=0;i<n;i++){ await scr(`m_ship_p${i}.js`); parts.push(window.TM['ship_p'+i]); delete window.TM['ship_p'+i]; } window.TM.ship=parts.join(''); } go(); }).catch(rej); return; }
-    const s=document.createElement('script'); s.src=`m_${key}.js`; s.onload=go; s.onerror=rej; document.head.appendChild(s);
+    const s=document.createElement('script'); s.src=`m_${key}.js?v=${BUILD}`; s.onload=go; s.onerror=rej; document.head.appendChild(s);
   });
   return loaded[key];
 }
@@ -1387,7 +1388,7 @@ function showShip(){
   camera.near=.5; camera.far=3000; camera.updateProjectionMatrix(); controls.minDistance=20; controls.maxDistance=700;
   if(!camera.userData.init){ camera.position.set(60,110,260); controls.target.set(98,6,0); camera.userData.init=1; }
   flyTo(new THREE.Vector3(60,92,235),new THREE.Vector3(98,6,0));
-  tools.innerHTML=`<button class="tbtn" id="tourb" style="border-color:var(--accent);color:var(--accent)">Ship tour</button><button class="tbtn" id="lbl" aria-pressed="true">Labels: all</button><button class="tbtn" id="cut" aria-pressed="${cutaway}">Cutaway</button><button class="tbtn" id="uw" aria-pressed="${underwater}">Underwater</button><button class="tbtn" id="bow">Bow</button><button class="tbtn" id="erb">Engine room</button><button class="tbtn" id="brg">Bridge</button><button class="tbtn" id="brgw">Bridge wing</button><button class="tbtn" id="accb" aria-pressed="false">Accommodation</button><button class="tbtn" id="wayb" aria-pressed="true">Under way</button><button class="tbtn" id="nightb" aria-pressed="false">Night</button><button class="tbtn" id="lightsb" hidden>Lights: under way</button><button class="tbtn" id="condb">Loading: Partly loaded</button><button class="tbtn" id="wxb">Weather</button>`;
+  tools.innerHTML=`<button class="tbtn" id="tourb" style="border-color:var(--accent);color:var(--accent)">Ship tour</button><button class="tbtn" id="lbl" aria-pressed="true">Labels: all</button><button class="tbtn" id="cut" aria-pressed="${cutaway}">Cutaway</button><button class="tbtn" id="uw" aria-pressed="${underwater}">Underwater</button><button class="tbtn" id="bow">Bow</button><button class="tbtn" id="erb">Engine room</button><button class="tbtn" id="brg">Bridge</button><button class="tbtn" id="brgw">Bridge wing</button><button class="tbtn" id="accb" aria-pressed="false">Accommodation</button><button class="tbtn" id="wayb" aria-pressed="true">Under way</button><button class="tbtn" id="nightb" aria-pressed="false">Night</button><button class="tbtn" id="lightsb" hidden>Lights: under way</button><button class="tbtn" id="condb">Loading: Partly loaded</button><button class="tbtn" id="wxb">Weather</button><a class="tbtn" href="renders.html" target="_blank" rel="noopener" style="text-decoration:none;text-align:center">Photoreal views</a>`;
   $('#cut').onclick=e=>{ setCutaway(!cutaway); if(cutaway){ underwater=false; hotspotEls.forEach(h=>h.el.hidden=false); $('#uw').setAttribute('aria-pressed',false); } e.target.setAttribute('aria-pressed',cutaway); };
   $('#uw').onclick=e=>{ setUnderwater(!underwater); e.target.setAttribute('aria-pressed',underwater); };
   $('#tourb').onclick=tourStart;
@@ -2117,17 +2118,18 @@ function wxLive(t){ const el=$('#wxlive'); if(!el||el.offsetParent===null||t-wxL
    (para?'<span style="grid-column:1/3;color:var(--warn,#f0a030)">Encounter period about half the roll period in head/following seas: parametric rolling risk (MSC.1/Circ.1228).</span>':''); }
 // ================= surface realism: photo-scanned CC0 detail (paint texture, wear, roughness variation) on every painted part
 const DET={}; const DETL=new THREE.TextureLoader();
-function detTex(n){ if(DET[n]) return DET[n]; const t=DETL.load('tex/d_'+n+'.jpg'); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.colorSpace=THREE.NoColorSpace; t.anisotropy=8; return DET[n]=t; }
+function detTex(n){ if(DET[n]) return DET[n]; const t=DETL.load('tex/d_'+n+'.jpg?v='+BUILD); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.colorSpace=THREE.NoColorSpace; t.anisotropy=8; return DET[n]=t; }
 const DET_SKIP=/(Glass|Screen|Scr_|Dec_|Tx_|png|Lens|Water|LLL|FLAG|Light|Wake|Foam|Flame|Skin|Mimic|Dial|Retro|Reflect|HiViz|Rope|Manila|Line|Hose|Fabric|Wood|Tile|Sky|Sea)/i;
 function detPick(name,c){ const hsl={}; c.getHSL(hsl);
   if(/Floor|ECRFloor/i.test(name)) return ['floor',0.8,0.9]; if(/Walk|NonSlip/i.test(name)) return ['deck',0.5,0.5];
   if(/Steel|Stainless|Machined|Chrome|Brass|Bronze|Chain|Grating|Anode/i.test(name)) return ['steel',0.6,0.35];
   if(hsl.l>0.62&&hsl.s<0.3) return ['streak',0.25,0.32]; if(hsl.s>0.45) return ['paint',0.55,0.3]; return ['mach',0.4,0.45]; }
 function detPatch(m,set,scale,str){ if(m.userData.det) return; m.userData.det=1; const tex=detTex(set);
-  const prev=m.onBeforeCompile; m.onBeforeCompile=(sh,r)=>{ if(prev) prev(sh,r); sh.uniforms.uDet={value:tex}; sh.uniforms.uDS={value:str}; sh.uniforms.uDSc={value:scale};
+  const prev=m.onBeforeCompile; m.onBeforeCompile=(sh,r)=>{ if(prev) prev(sh,r); sh.uniforms.uDet={value:tex}; sh.uniforms.uDS={value:str}; sh.uniforms.uDSc={value:scale}; sh.uniforms.uGr={value:detTex('streak')}; sh.uniforms.uRu={value:/paint|mach|streak/.test(set)?1:0}; sh.uniforms.uBp={value:set==='steel'?0.35:set==='floor'||set==='deck'?1.1:0.7};
     sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vWPd; varying vec3 vWNd;').replace('#include <begin_vertex>','#include <begin_vertex>\nvWPd=(modelMatrix*vec4(transformed,1.0)).xyz; vWNd=normalize(mat3(modelMatrix)*objectNormal);');
-    sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 vWPd; varying vec3 vWNd; uniform sampler2D uDet; uniform float uDS; uniform float uDSc;')
-      .replace('#include <map_fragment>','#include <map_fragment>\nvec3 dbw=pow(abs(normalize(vWNd)),vec3(4.0)); dbw/=(dbw.x+dbw.y+dbw.z); vec3 dtx=texture2D(uDet,vWPd.zy*uDSc).rgb*dbw.x+texture2D(uDet,vWPd.xz*uDSc).rgb*dbw.y+texture2D(uDet,vWPd.xy*uDSc).rgb*dbw.z;\ndiffuseColor.rgb*=mix(1.0,clamp(dtx.r*2.0,0.25,1.6),uDS);')
+    sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 vWPd; varying vec3 vWNd; uniform sampler2D uDet; uniform sampler2D uGr; uniform float uDS; uniform float uDSc; uniform float uRu; uniform float uBp;')
+      .replace('#include <map_fragment>','#include <map_fragment>\nvec3 dbw=pow(abs(normalize(vWNd)),vec3(4.0)); dbw/=(dbw.x+dbw.y+dbw.z); vec3 dtx=texture2D(uDet,vWPd.zy*uDSc).rgb*dbw.x+texture2D(uDet,vWPd.xz*uDSc).rgb*dbw.y+texture2D(uDet,vWPd.xy*uDSc).rgb*dbw.z;\ndiffuseColor.rgb*=mix(1.0,clamp(dtx.r*2.0,0.25,1.6),uDS);\nfloat dvt=1.0-dbw.y; vec2 gcU=vec2(dot(vWPd.xz,vec2(0.7071))*0.35,vWPd.y*0.045); float gr=texture2D(uGr,gcU).r; diffuseColor.rgb*=mix(1.0,0.72+0.36*gr,0.55*uRu*dvt);\nfloat rm=texture2D(uGr,vWPd.xz*0.013+vWPd.y*0.011+0.37).g; float rk=smoothstep(0.66,0.8,rm)*uRu; diffuseColor.rgb=mix(diffuseColor.rgb,vec3(0.30,0.15,0.07)*(0.7+0.6*dtx.r),rk*0.55);')
+      .replace('#include <normal_fragment_maps>','#include <normal_fragment_maps>\n{ float dh=dot(dtx,vec3(0.3333)); vec3 sx=dFdx(-vViewPosition), sy=dFdy(-vViewPosition); vec3 r1=cross(sy,normal), r2=cross(normal,sx); float fd=dot(sx,r1)*faceDirection; vec3 gv=sign(fd)*(dFdx(dh)*r1+dFdy(dh)*r2); normal=normalize(abs(fd)*normal-gv*uBp); }')
       .replace('#include <roughnessmap_fragment>','#include <roughnessmap_fragment>\nroughnessFactor=clamp(roughnessFactor*mix(1.0,0.55+dtx.g*0.9,uDS),0.04,1.0);'); };
   const k=m.customProgramCacheKey?m.customProgramCacheKey():''; m.customProgramCacheKey=()=>k+'|det'; m.needsUpdate=true; }
 function shipDetail(){ let n=0; const seen=new Map();
