@@ -238,7 +238,7 @@ function flyTo(pos,target,dur=2.6){tween={p0:camera.position.clone(),t0:controls
 const loader=new GLTFLoader(); { const dl=new DRACOLoader(); dl.setDecoderPath('./'); dl.setDecoderConfig({type:'js'}); loader.setDRACOLoader(dl); }
 const b64=s=>{const bin=atob(s),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u.buffer;};
 const loaded={};
-const BUILD='36';   // bump on every release so browsers fetch the new model files
+const BUILD='37';   // bump on every release so browsers fetch the new model files
 function loadModel(key){
   if(loaded[key]) return loaded[key];
   loaded[key]=new Promise((res,rej)=>{
