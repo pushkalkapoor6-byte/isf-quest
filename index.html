@@ -245,8 +245,8 @@ function flyTo(pos,target,dur=2.6){tween={p0:camera.position.clone(),t0:controls
 const loader=new GLTFLoader(); { const dl=new DRACOLoader(); dl.setDecoderPath('./'); dl.setDecoderConfig({type:'js'}); loader.setDRACOLoader(dl); }
 const b64=s=>{const bin=atob(s),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u.buffer;};
 const loaded={};
-const BUILD='43';   // bump on every release so browsers fetch the new model files (deploy_site.py does this automatically)
-const BUILD_DATE='2026-10-12';
+const BUILD='44';   // bump on every release so browsers fetch the new model files (deploy_site.py does this automatically)
+const BUILD_DATE='2026-10-13';
 { const v=document.getElementById('ver'); if(v) v.textContent='v1.'+BUILD+' \u00b7 '+BUILD_DATE; }
 // ---- photographic sky (CC0 HDRI, Poly Haven 'kloofendal 48d partly cloudy, pure sky'): background, reflections, sun direction and haze colour
 const SKY={bg:null};
@@ -1349,12 +1349,12 @@ const APPRE=/^APP_/;
 const SHIPMAT=[[/^COT_/,'#d9a03a',.55,'cargo'],[/^SLOP_/,'#a8642e',.6,'cargo'],[/^(WBT_|FWD_WBT_|FPT)/,'#2a9aa3',.35,'ballast'],[/^COFF_/,'#e7cd3a',.7,'coff'],[/^ER_/,'#8b95a6',.05,'er'],[/^ChainLocker/,'#8e959c',.55,'coff'],[/^TK_/,null,.5,'er']];
 const LAYERS={hull:{n:'Hull shell',c:'#3a4552'},cargo:{n:'Cargo & slop tanks',c:'#d9a03a'},ballast:{n:'Ballast tanks',c:'#2a9aa3'},coff:{n:'Cofferdams & chain lockers',c:'#e7cd3a'},er:{n:'Engine room',c:'#8b95a6'},app:{n:'Rudder, propeller & appendages',c:'#c58a4a'},deck:{n:'Deck & superstructure',c:'#d9dde2'}};
 let cutaway=false, underwater=false; const shipSpin={prop:[],rud:[]};
-const UWU={value:0};
+const UWU={value:0}, UWL={value:1};
 function hullMaterial(){
   const m=new THREE.MeshStandardMaterial({color:'#ffffff',roughness:.62,metalness:.05,side:THREE.DoubleSide});
-  m.onBeforeCompile=sh=>{ sh.uniforms.uT=SEA_T; sh.uniforms.uUW=UWU; sh.uniforms.uDeck={value:detTex('deck')}; sh.uniforms.uHullD={value:detTex('hull')}; sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying float vY; varying float vNy; varying float vX; varying float vZ;').replace('#include <begin_vertex>','#include <begin_vertex>\nvY=position.y; vNy=normal.y; vX=position.x; vZ=position.z;');
-    sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying float vY; varying float vNy; varying float vX; varying float vZ; uniform float uT; uniform float uUW; uniform sampler2D uDeck; uniform sampler2D uHullD;').replace('vec4 diffuseColor = vec4( diffuse, opacity );',
-     'vec3 hc = vNy>0.8&&vY>18.9? vec3(.33,.085,.06) : (vY<7.5? vec3(.42,.08,.05) : (vY<13.6? vec3(.025,.028,.032) : vec3(.05,.075,.12))); float sk=smoothstep(0.035,0.0,abs(fract(vY/2.55)-0.5)-0.465); float bt=smoothstep(0.03,0.0,abs(fract(vX/12.0)-0.5)-0.47); float wl=smoothstep(0.06,0.0,abs(vY-13.6)); hc*=1.0-0.10*max(sk,bt)*step(vNy,0.8); float dk=step(0.8,vNy); float ds=max(smoothstep(0.03,0.0,abs(fract(vX/10.0)-0.5)-0.47),smoothstep(0.03,0.0,abs(fract(vZ/2.5)-0.5)-0.465)); hc*=1.0-0.18*ds*dk; hc=mix(hc,vec3(.75,.75,.72),wl*0.0); float gr=fract(sin(dot(floor(vec2(vX,vY)*1.3),vec2(12.9898,78.233)))*43758.5453); hc*=uUW>0.5?0.99+0.02*gr:0.96+0.06*gr; vec3 hdt=vNy>0.8?texture2D(uDeck,vec2(vX,vZ)*0.35).rgb:texture2D(uHullD,vec2(vX*0.09,vY*0.09)).rgb; hc*=mix(1.0,clamp(hdt.r*2.0,0.4,1.5),vNy>0.8?0.45:0.3); if(uUW>0.5&&vY<11.0){ float cs=(sin(vX*1.3+uT*1.4)+sin(vZ*1.7-uT*1.1)+sin((vX-vZ)*0.9+uT*0.8)+sin((vX+vZ*0.5)*2.1-uT*1.9))/4.0; float ca=pow(0.5+0.5*cs,7.0)*1.1*exp(-(11.0-vY)*0.15); hc+=vec3(0.3,0.5,0.5)*ca; } vec4 diffuseColor = vec4( hc, opacity );'); };
+  m.onBeforeCompile=sh=>{ sh.uniforms.uT=SEA_T; sh.uniforms.uUW=UWU; sh.uniforms.uUWL=UWL; sh.uniforms.uDeck={value:detTex('deck')}; sh.uniforms.uHullD={value:detTex('hull')}; sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying float vY; varying float vNy; varying float vX; varying float vZ;').replace('#include <begin_vertex>','#include <begin_vertex>\nvY=position.y; vNy=normal.y; vX=position.x; vZ=position.z;');
+    sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying float vY; varying float vNy; varying float vX; varying float vZ; uniform float uT; uniform float uUW; uniform float uUWL; uniform sampler2D uDeck; uniform sampler2D uHullD;').replace('vec4 diffuseColor = vec4( diffuse, opacity );',
+     'vec3 hc = vNy>0.8&&vY>18.9? vec3(.33,.085,.06) : (vY<7.5? vec3(.42,.08,.05) : (vY<13.6? vec3(.025,.028,.032) : vec3(.05,.075,.12))); float sk=smoothstep(0.035,0.0,abs(fract(vY/2.55)-0.5)-0.465); float bt=smoothstep(0.03,0.0,abs(fract(vX/12.0)-0.5)-0.47); float wl=smoothstep(0.06,0.0,abs(vY-13.6)); hc*=1.0-0.10*max(sk,bt)*step(vNy,0.8); float dk=step(0.8,vNy); float ds=max(smoothstep(0.03,0.0,abs(fract(vX/10.0)-0.5)-0.47),smoothstep(0.03,0.0,abs(fract(vZ/2.5)-0.5)-0.465)); hc*=1.0-0.18*ds*dk; hc=mix(hc,vec3(.75,.75,.72),wl*0.0); float gr=fract(sin(dot(floor(vec2(vX,vY)*1.3),vec2(12.9898,78.233)))*43758.5453); hc*=uUW>0.5?0.99+0.02*gr:0.96+0.06*gr; vec3 hdt=vNy>0.8?texture2D(uDeck,vec2(vX,vZ)*0.35).rgb:texture2D(uHullD,vec2(vX*0.09,vY*0.09)).rgb; hc*=mix(1.0,clamp(hdt.r*2.0,0.4,1.5),vNy>0.8?0.45:0.3); if(uUW>0.5&&vY<11.0){ float cs=(sin(vX*1.3+uT*1.4)+sin(vZ*1.7-uT*1.1)+sin((vX-vZ)*0.9+uT*0.8)+sin((vX+vZ*0.5)*2.1-uT*1.9))/4.0; float ca=pow(0.5+0.5*cs,7.0)*1.1*exp(-(11.0-vY)*0.15); hc+=vec3(0.3,0.5,0.5)*ca*uUWL; } vec4 diffuseColor = vec4( hc, opacity );'); };
   return m;
 }
 function patternMat(m,kind){ m.onBeforeCompile=sh=>{
@@ -1765,21 +1765,21 @@ function tourEnd(){ tourI=-1; $('#tour').hidden=true; if(cutaway){ setCutaway(fa
 
 // ================= underwater world: seen whenever the camera is below the waterline in ship view
 const UW=new THREE.Group(); UW.visible=false; scene.add(UW);
-const uwFog=new THREE.FogExp2(0x0a4152,0.014), uwBg=new THREE.Color(0x0b3f4c);
+const uwFog=new THREE.FogExp2(0x0a3550,0.014), uwBg=new THREE.Color(0x0b3f4c);
 { // underside of the sea surface: Snell's window (bright sky disc overhead), total internal reflection beyond, moving ripples
-  const g=new THREE.PlaneGeometry(1600,1600,1,1); const m=new THREE.ShaderMaterial({side:THREE.DoubleSide,uniforms:{t:{value:0},cam:{value:new THREE.Vector3()}},
+  const g=new THREE.PlaneGeometry(1600,1600,1,1); const m=new THREE.ShaderMaterial({side:THREE.DoubleSide,uniforms:{t:{value:0},cam:{value:new THREE.Vector3()},lum:{value:1},deep:{value:new THREE.Color(0x0a3550)}},
     vertexShader:'varying vec3 vW; void main(){ vW=(modelMatrix*vec4(position,1.)).xyz; gl_Position=projectionMatrix*viewMatrix*vec4(vW,1.); }',
-    fragmentShader:`uniform float t; uniform vec3 cam; varying vec3 vW;
+    fragmentShader:`uniform float t; uniform vec3 cam; uniform float lum; uniform vec3 deep; varying vec3 vW;
       float rip(vec2 p){ return sin(p.x*1.9+t*1.1)*sin(p.y*1.5-t*0.9)+0.6*sin((p.x+p.y)*3.3+t*1.7)+0.35*sin((p.x-p.y)*5.1-t*2.3); }
       void main(){ float depth=max(0.5,10.98-cam.y); vec2 d=vW.xz-cam.xz; float r=length(d)/depth; float win=smoothstep(1.25,0.95,r+0.08*rip(vW.xz*0.25));
         float c=smoothstep(0.4,1.6,rip(vW.xz*0.2));
         vec3 sky=mix(vec3(0.55,0.85,0.9),vec3(0.95,1.0,0.98),c); vec3 tir=mix(vec3(0.05,0.28,0.33),vec3(0.12,0.42,0.46),c);
-        vec3 col=mix(tir,sky,win); float f=exp(-pow(length(d)*0.0125,2.0)); gl_FragColor=vec4(mix(vec3(0.055,0.33,0.4),col,f),1.0); }`});
+        vec3 col=mix(tir,sky,win); float f=exp(-pow(length(d)*0.0125,2.0)); gl_FragColor=vec4(mix(deep,col*lum,f),1.0); }`});
   const m2=new THREE.Mesh(g,m); m2.rotation.x=-Math.PI/2; m2.position.set(90,10.98,0); m2.renderOrder=3; UW.add(m2); UW.userData.surf=m;
   // background: light from above fading to the deep blue below
-  const gs=new THREE.Mesh(new THREE.SphereGeometry(900,32,16),new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,uniforms:{},
+  const gs=new THREE.Mesh(new THREE.SphereGeometry(900,32,16),new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,uniforms:{lum:{value:1},deep:{value:new THREE.Color(0x0a3550)},dd:{value:0}},
     vertexShader:'varying vec3 vD; void main(){ vD=normalize(position); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }',
-    fragmentShader:'varying vec3 vD; void main(){ float h=vD.y; vec3 c=mix(vec3(0.02,0.12,0.17),vec3(0.055,0.33,0.4),smoothstep(-0.6,0.05,h)); c=mix(c,vec3(0.2,0.55,0.6),smoothstep(0.05,0.6,h)); gl_FragColor=vec4(c,1.); }'}));
+    fragmentShader:'uniform float lum; uniform vec3 deep; uniform float dd; varying vec3 vD; void main(){ float h=vD.y; vec3 abyss=vec3(0.002,0.012,0.03); vec3 c=mix(abyss,deep,smoothstep(-0.7,0.05,h)); vec3 up=mix(vec3(0.16,0.45,0.58),vec3(0.06,0.22,0.34),dd)*lum; c=mix(c,max(up,deep),smoothstep(0.05,0.65,h)); gl_FragColor=vec4(c,1.); }'}));
   gs.renderOrder=-10; UW.add(gs); UW.userData.grad=gs;
   // light shafts from the surface, faint and slowly swaying
   const rg=new THREE.CylinderGeometry(0.8,3.0,46,8,1,true); rg.translate(0,-23,0); const rm=new THREE.ShaderMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide,vertexShader:'varying float vF; varying float vH; void main(){ vec4 wp=modelMatrix*vec4(position,1.); vec3 n=normalize(mat3(modelMatrix)*normal); vec3 v=normalize(cameraPosition-wp.xyz); vF=abs(dot(n,v)); vH=clamp(-position.y/46.0,0.,1.); gl_Position=projectionMatrix*viewMatrix*wp; }',fragmentShader:'varying float vF; varying float vH; void main(){ float a=pow(vF,3.0)*(1.0-vH)*(1.0-vH)*0.07; gl_FragColor=vec4(vec3(0.75,0.95,0.92)*a,a); }'});
@@ -1863,7 +1863,17 @@ function lifeTick(t){ SEA_T.value=t; const sea=11;
     for(let i=0;i<S.off.length;i++){ const [ox,oy,oz,sz]=S.off[i]; const w=Math.sin(t*0.7+i)*0.3;
       _v1.set(ox,oy,oz).applyAxisAngle(_up,yaw); _v1.x+=cx; _v1.y+=cy+w*0.2; _v1.z+=cz; _e4.set(0,yaw+Math.sin(t*1.3+i)*0.12,pit,'YZX'); _q4.setFromEuler(_e4); _s4.setScalar(sz); _m4.compose(_v1,_q4,_s4); S.im.setMatrixAt(i,_m4); }
     S.im.instanceMatrix.needsUpdate=true; } }
-function uwTick(t){ UW.userData.surf.uniforms.t.value=t; UW.userData.surf.uniforms.cam.value.copy(camera.position); if(UW.userData.grad) UW.userData.grad.position.copy(camera.position); if(UW.userData.parts){ UW.userData.parts.position.y=Math.sin(t*0.1)*0.6; UW.userData.parts.position.x=-(flowX%60); } }
+const UW_SHALLOW=new THREE.Color(0x0d4a63), UW_DEEPC=new THREE.Color(0x03111f), _uwc=new THREE.Color();
+function uwLight(){ // light under water: daylight or a dark night, fading and turning bluer with depth (red and green absorbed first)
+  const night=!!VOY.night, depth=Math.max(0,11-camera.position.y), k=Math.min(1,depth/40), lum=night?0.07:1.0;
+  _uwc.copy(UW_SHALLOW).lerp(UW_DEEPC,k).multiplyScalar(night?0.12:1.0);
+  uwFog.color.copy(_uwc); uwFog.density=(night?0.022:0.013)+depth*0.0004;
+  const S=UW.userData.surf.uniforms; S.lum.value=lum*(1-0.5*k); S.deep.value.copy(_uwc);
+  const Gu=UW.userData.grad.material.uniforms; Gu.lum.value=lum*(1-0.6*k); Gu.deep.value.copy(_uwc); Gu.dd.value=k;
+  UWL.value=night?0.0:(1-0.8*k); if(UW.userData.rays) UW.userData.rays.visible=!night&&depth<30;
+  if(UW.userData.parts) UW.userData.parts.material.opacity=night?0.12:0.5*(1-0.4*k);
+  scene.environment=night?null:roomEnv; hemi.color.set(night?0x1b2a3a:0x7fc4d4); hemi.intensity=night?0.35:0.85*(1-0.55*k); sun.intensity=night?0.04:0.9*(1-0.7*k); renderer.toneMappingExposure=night?0.8:0.9; }
+function uwTick(t){ uwLight(); UW.userData.surf.uniforms.t.value=t; UW.userData.surf.uniforms.cam.value.copy(camera.position); if(UW.userData.grad) UW.userData.grad.position.copy(camera.position); if(UW.userData.parts){ UW.userData.parts.position.y=Math.sin(t*0.1)*0.6; UW.userData.parts.position.x=-(flowX%60); } }
 let uwOn=false;
 function uwEnv(on){ if(on===uwOn) return; uwOn=on; if(!on) shipEnvOn=null; UW.visible=on; sky.visible=!on; UWU.value=on?1:0; if(on){ scene.fog=uwFog; scene.background=null; scene.environment=roomEnv; hemi.color.set(0x8fd0d8); hemi.intensity=0.9; sun.intensity=0.9; sun.castShadow=false; renderer.toneMappingExposure=0.9; }
   else { hemi.color.set(0xdfe8f2); shipEnvOn=null; } }
@@ -2213,16 +2223,65 @@ function navLightsTick(){ const on=VOY.night&&mode==='ship'&&shipGroup.visible; 
     sp.visible=vis; } }
 function setNight(on){ VOY.night=on; shipEnvOn=null; if(!on){ dayRestoreSea(); sky.visible=!uwOn; sun.castShadow=true; } const b=$('#nightb'); if(b){ b.setAttribute('aria-pressed',on); b.textContent=on?'Night: on':'Night'; } const lb=$('#lightsb'); if(lb) lb.hidden=false; }
 const NIGHT={bg:new THREE.Color(0x05080f),fog:new THREE.FogExp2(0x070b14,0.0007)};
-const stars=(()=>{ const N=2500,p=new Float32Array(N*3); for(let i=0;i<N;i++){ const u=Math.random()*2-1, a=Math.random()*6.283, r=1400; const s=Math.sqrt(1-u*u); p[i*3]=r*s*Math.cos(a); p[i*3+1]=Math.abs(u)*r; p[i*3+2]=r*s*Math.sin(a); }
-  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(p,3)); const m=new THREE.Points(g,new THREE.PointsMaterial({color:0xdde6ff,size:1.4,sizeAttenuation:false,fog:false})); m.visible=false; m.layers.set(1); camera.layers.enable(1); scene.add(m); return m; })();
+// night sky: dome with airglow and the Milky Way, stars of realistic magnitude and colour that scintillate near the horizon, and the moon
+const MOON_DIR=new THREE.Vector3().setFromSphericalCoords(1,THREE.MathUtils.degToRad(90-24),THREE.MathUtils.degToRad(215)), NSKY_T={value:0};
+const stars=(()=>{ const G=new THREE.Group(); G.visible=false;
+  const GN=new THREE.Vector3(0.20,0.10,0.97).normalize();             // Milky Way great circle (its pole)
+  const NOISE3=`float h3(vec3 p){ return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453); }
+    float n3(vec3 p){ vec3 i=floor(p), f=fract(p); f=f*f*(3.-2.*f);
+      return mix(mix(mix(h3(i),h3(i+vec3(1,0,0)),f.x),mix(h3(i+vec3(0,1,0)),h3(i+vec3(1,1,0)),f.x),f.y),mix(mix(h3(i+vec3(0,0,1)),h3(i+vec3(1,0,1)),f.x),mix(h3(i+vec3(0,1,1)),h3(i+vec3(1,1,1)),f.x),f.y),f.z); }
+    float fb3(vec3 p){ float s=0., a=.5; for(int k=0;k<5;k++){ s+=a*n3(p); p*=2.07; a*=.5; } return s; }`;
+  const dome=new THREE.Mesh(new THREE.SphereGeometry(1450,48,24),new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,fog:false,
+    uniforms:{gn:{value:GN},md:{value:MOON_DIR}},
+    vertexShader:'varying vec3 vD; void main(){ vD=normalize(position); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }',
+    fragmentShader:`uniform vec3 gn; uniform vec3 md; varying vec3 vD; ${NOISE3}
+      void main(){ vec3 v=normalize(vD); float h=v.y;
+        vec3 c=mix(vec3(0.030,0.045,0.080),vec3(0.003,0.006,0.016),smoothstep(0.0,0.55,h));            // darker towards the zenith
+        c+=vec3(0.012,0.020,0.014)*exp(-max(h,0.)*14.0);                                                   // faint green airglow at the horizon
+        float g=dot(v,gn); float band=exp(-g*g/(2.0*0.13*0.13));
+        vec3 gc=normalize(cross(gn,vec3(0,1,0))); float centre=0.55+0.9*exp(-pow(acos(clamp(dot(normalize(v-gn*g),gc),-1.,1.)),2.0)*1.6);
+        float cl=fb3(v*7.0), dust=smoothstep(0.48,0.68,fb3(v*13.0+3.1))*exp(-g*g/(2.0*0.035*0.035));
+        float mw=band*(0.35+0.9*cl)*(1.0-0.75*dust)*centre;
+        c+=vec3(0.15,0.15,0.17)*mw*smoothstep(-0.02,0.25,h);
+        float a=acos(clamp(dot(v,md),-1.,1.)); c+=vec3(0.16,0.17,0.20)*exp(-a*a*900.0)+vec3(0.05,0.055,0.07)*exp(-a*a*60.0)+vec3(0.025,0.03,0.04)*exp(-a*4.0);   // moon glow
+        float mr=0.0105; if(a<mr){ vec3 t1=normalize(cross(md,vec3(0,1,0))), t2=cross(t1,md); vec2 q=vec2(dot(v-md,t1),dot(v-md,t2))/mr;   // moon disc: limb darkening and maria
+          float mu=sqrt(max(0.,1.0-dot(q,q))); float mar=smoothstep(0.45,0.62,fb3(vec3(q*3.2,1.7)))*0.35+0.12*fb3(vec3(q*11.0,4.2));
+          c=mix(c,vec3(0.86,0.86,0.82)*(0.55+0.45*mu)*(1.0-mar),smoothstep(1.0,0.96,length(q))); }
+        if(h<0.) c=mix(c,vec3(0.006,0.009,0.016),smoothstep(0.0,-0.05,h));
+        gl_FragColor=vec4(c,1.); }`}));
+  dome.renderOrder=-20; G.add(dome);
+  // stars: about 9,000 visible to the naked eye; most faint, a few bright; colours from blue-white to orange-red
+  const PAL=[[0.72,0.82,1.0],[0.92,0.95,1.0],[1.0,0.97,0.9],[1.0,0.86,0.66],[1.0,0.72,0.52]], PW=[0.18,0.38,0.26,0.13,0.05];
+  const N=9000, P=new Float32Array(N*3), C=new Float32Array(N*3), Z=new Float32Array(N), F=new Float32Array(N);
+  const tmp=new THREE.Vector3(), e1=new THREE.Vector3().crossVectors(GN,new THREE.Vector3(0,1,0)).normalize(), e2=new THREE.Vector3().crossVectors(GN,e1);
+  for(let i=0;i<N;i++){
+    if(i<3200){ const a=Math.random()*6.283; let gz=0; for(let k=0;k<4;k++) gz+=Math.random()-0.5; gz*=0.17;          // concentrated along the Milky Way
+      tmp.copy(e1).multiplyScalar(Math.cos(a)).addScaledVector(e2,Math.sin(a)).addScaledVector(GN,gz).normalize(); }
+    else { const u=Math.random()*2-1, a=Math.random()*6.283, q=Math.sqrt(1-u*u); tmp.set(q*Math.cos(a),u,q*Math.sin(a)); }
+    if(tmp.y<0) tmp.y=-tmp.y; tmp.multiplyScalar(1400); P[i*3]=tmp.x; P[i*3+1]=tmp.y; P[i*3+2]=tmp.z;
+    const r=Math.random(), m=i<3200?Math.pow(r,14):Math.pow(r,9);                                          // magnitude distribution
+    const b=0.18+0.82*m; let w=Math.random(), k=0; while(k<4&&w>PW[k]){ w-=PW[k]; k++; }
+    C[i*3]=PAL[k][0]*b; C[i*3+1]=PAL[k][1]*b; C[i*3+2]=PAL[k][2]*b; Z[i]=1.3+4.2*m; F[i]=Math.random(); }
+  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(P,3)); g.setAttribute('col',new THREE.BufferAttribute(C,3)); g.setAttribute('sz',new THREE.BufferAttribute(Z,1)); g.setAttribute('ph',new THREE.BufferAttribute(F,1));
+  const pts=new THREE.Points(g,new THREE.ShaderMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,fog:false,uniforms:{t:NSKY_T,pr:{value:Math.min(2,window.devicePixelRatio||1)}},
+    vertexShader:`attribute vec3 col; attribute float sz; attribute float ph; uniform float t; uniform float pr; varying vec3 vC; varying float vA;
+      void main(){ vec3 d=normalize(position); float el=d.y; float low=1.0-smoothstep(0.02,0.45,el);
+        float tw=1.0+(0.12+0.5*low)*sin(t*(2.0+ph*5.0)+ph*40.0)*sin(t*(1.3+ph*3.1)+ph*13.0);                 // scintillation, strongest near the horizon
+        vA=clamp(tw,0.25,1.8)*smoothstep(0.0,0.06,el)*(1.0-0.55*low);                                          // extinction near the horizon
+        vC=col*mix(vec3(1.0,0.82,0.65),vec3(1.0),smoothstep(0.03,0.35,el));                                   // horizon reddening
+        vec4 mv=modelViewMatrix*vec4(position,1.); gl_Position=projectionMatrix*mv; gl_PointSize=sz*pr; }`,
+    fragmentShader:`varying vec3 vC; varying float vA; void main(){ vec2 q=gl_PointCoord-0.5; float d=dot(q,q)*4.0; float a=exp(-d*5.0)+0.25*exp(-d*1.2); gl_FragColor=vec4(vC*a*vA,1.0); }`}));
+  pts.renderOrder=-19; G.add(pts);
+  G.traverse(o=>o.layers.set(1)); camera.layers.enable(1); scene.add(G); return G; })();
 function nightApply(){ // called every frame after the day/underwater environment logic
   const n=VOY.night&&mode==='ship'&&shipGroup.visible&&!cutaway&&!uwOn; stars.visible=n; stars.position.copy(camera.position);
   for(const m of WIN) m.emissiveIntensity=n?0.9:0;
   for(const f of FOAM) f.material.uniforms.uNight.value=n?0.75:0;
   if(!n) return;
   scene.background=NIGHT.bg; scene.fog=NIGHT.fog; scene.environment=null; sky.visible=false; hemi.color.set(0x1a2233); hemi.groundColor&&hemi.groundColor.set(0x020304); hemi.intensity=0.06; sun.intensity=0.05; sun.color.set(0x8fa3c8); sun.castShadow=false; renderer.toneMappingExposure=0.85;
-  if(sea&&sea.material.uniforms){ const u=sea.material.uniforms; u.sunColor.value.set(0x000000); u.waterColor.value.set(0x010407); if(u.distortionScale) u.distortionScale.value=0.6; } }
-function dayRestoreSea(){ if(sea&&sea.material.uniforms){ sea.material.uniforms.sunColor.value.set(0xfff4e0); sea.material.uniforms.waterColor.value.set(0x0e4266); if(sea.material.uniforms.distortionScale) sea.material.uniforms.distortionScale.value=2.2; } sun.color.set(0xffffff); hemi.color.set(0xdfe8f2); }
+  if(sea&&sea.material.uniforms){ const u=sea.material.uniforms; u.sunColor.value.set(0x6d7787); if(u.sunDirection) u.sunDirection.value.copy(MOON_DIR); u.waterColor.value.set(0x01060c); if(u.distortionScale) u.distortionScale.value=1.6; }
+  NSKY_T.value=performance.now()/1000; sun.position.copy(MOON_DIR).multiplyScalar(260).add(B(90,0,0)); sun.intensity=0.12; sun.color.set(0xaab8d6); }
+function dayRestoreSea(){ if(sea&&sea.material.uniforms){ sea.material.uniforms.sunColor.value.set(0xfff4e0); if(sea.material.uniforms.sunDirection) sea.material.uniforms.sunDirection.value.copy(sunDir); sea.material.uniforms.waterColor.value.set(0x0e4266); if(sea.material.uniforms.distortionScale) sea.material.uniforms.distortionScale.value=2.2; } sun.color.set(0xffffff); hemi.color.set(0xdfe8f2); }
 // ship motion and flowing sea while under way
 let flowX=0; const _qm=new THREE.Quaternion(), _em=new THREE.Euler(), PIV=B(90,0,11);
 function voyageTick(t,dt){ const go=VOY.underway&&mode==='ship'&&!cutaway&&!shipAnim&&shipGroup.visible; const ext=controls.minDistance>=10;
@@ -2330,11 +2389,11 @@ function voyageAttach(){ // called once the ship is loaded
           float d=max(0.,-6.0-x);                                    // distance astern of the stern
           // turbulent wake: about one beam wide at the stern, widening as (1+d/L)^0.55, edges meandering and broken
           float m=(4.5*sin(sx*0.009+1.3)+2.2*sin(sx*0.023)+1.0*sin(sx*0.061))*smoothstep(0.,160.,d);
-          float hw=11.5*pow(1.0+d/70.0,0.55);
+          float hw=7.0+20.0*(1.0-exp(-d/250.0))+0.11*d;            // narrow propeller race at the stern, spreading steadily astern
           float side=sign(y-m); float ed=hw*(1.0+0.5*(fbm(vec2(sx*0.03,side*7.0))-0.5));
           float cw=abs(y-m)/ed;
           float tex=fbm(vec2(sx,y)*0.22)+0.4*fbm(vec2(sx,y)*0.9+uT*0.5);
-          float fade=exp(-d/480.0), fresh=exp(-d/70.0);
+          float fade=exp(-d/700.0), fresh=exp(-d/80.0);
           float body=smoothstep(1.0,0.45,cw)*smoothstep(-4.0,6.0,-6.0-x);
           float a=body*(0.38+0.5*fresh)*fade*(0.6+0.5*smoothstep(0.35,0.8,tex));
           a+=smoothstep(0.12,0.0,abs(cw-0.85))*0.25*fade*smoothstep(0.45,0.75,tex)*smoothstep(-4.0,6.0,-6.0-x);            // foam streaks along the edges
