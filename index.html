@@ -245,7 +245,7 @@ function flyTo(pos,target,dur=2.6){tween={p0:camera.position.clone(),t0:controls
 const loader=new GLTFLoader(); { const dl=new DRACOLoader(); dl.setDecoderPath('./'); dl.setDecoderConfig({type:'js'}); loader.setDRACOLoader(dl); }
 const b64=s=>{const bin=atob(s),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u.buffer;};
 const loaded={};
-const BUILD='45';   // bump on every release so browsers fetch the new model files (deploy_site.py does this automatically)
+const BUILD='46';   // bump on every release so browsers fetch the new model files (deploy_site.py does this automatically)
 const BUILD_DATE='2026-10-13';
 { const v=document.getElementById('ver'); if(v) v.textContent='v1.'+BUILD+' \u00b7 '+BUILD_DATE; }
 // ---- photographic sky (CC0 HDRI, Poly Haven 'kloofendal 48d partly cloudy, pure sky'): background, reflections, sun direction and haze colour
