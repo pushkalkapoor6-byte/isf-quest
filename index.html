@@ -226,20 +226,26 @@ let shipEnvOn=null;
 function shipEnv(on){ if(on===shipEnvOn) return; shipEnvOn=on; scene.environment=on?skyEnv:roomEnv; scene.fog=on?fogShip:null; scene.background=on?(SKY.bg||null):new THREE.Color('#0f161e');
   hemi.intensity=on?0.35:0.6; sun.intensity=on?2.6:1.4; sun.castShadow=on; renderer.toneMappingExposure=on?0.62:1.05;
   if(on){ sun.position.copy(sunDir).multiplyScalar(260).add(B(90,0,0)); sun.target.position.copy(B(90,0,10)); } else sun.position.set(60,120,80); }
-{ const c=sun.shadow.camera; c.left=-120; c.right=120; c.top=60; c.bottom=-60; c.near=10; c.far=600; sun.shadow.mapSize.set(4096,2048); sun.shadow.bias=-0.0004; sun.shadow.normalBias=0.04; }
+{ const c=sun.shadow.camera; c.left=-120; c.right=120; c.top=60; c.bottom=-60; c.near=10; c.far=600; { const big=!matchMedia('(pointer:coarse)').matches; sun.shadow.mapSize.set(big?4096:2048,big?4096:2048); } sun.shadow.bias=-0.0004; sun.shadow.normalBias=0.04; }
 // ambient occlusion (contact shadows in corners and under machinery) on desktop GPUs
 const AO_ON=!matchMedia('(pointer:coarse)').matches; let composer=null, gtao=null;
 function setupComposer(){ if(!AO_ON) return; try{ composer=new EffectComposer(renderer); composer.addPass(new RenderPass(scene,camera)); gtao=new GTAOPass(scene,camera,8,8); gtao.updateGtaoMaterial({radius:0.9,distanceExponent:1.4,thickness:1.2,scale:1.0,samples:12}); gtao.blendIntensity=0.85; composer.addPass(gtao); composer.addPass(new OutputPass()); }catch(e){ composer=null; } }
 function resize(){const r=stage.getBoundingClientRect();renderer.setSize(r.width,r.height,false);camera.aspect=r.width/Math.max(r.height,1);camera.updateProjectionMatrix(); if(composer){ composer.setSize(r.width,r.height); }}
 new ResizeObserver(resize).observe(stage);
 let tween=null; let SPEED=1; let frameN=0;
+// sharp shadows close up: the sun's shadow box follows the point being looked at and shrinks as the camera closes in
+const _sfT=new THREE.Vector3();
+function shadowFit(){ if(!sun.castShadow||!shipEnvOn) return; _sfT.copy(controls.target); const d=camera.position.distanceTo(_sfT);
+  const h=Math.min(130,Math.max(6,d*0.9)); const c=sun.shadow.camera;
+  if(Math.abs(c.right-h)>h*0.08||_sfT.distanceToSquared(sun.target.position)>h*h*0.01){ c.left=-h; c.right=h; c.top=h; c.bottom=-h; c.near=1; c.far=Math.max(400,h*6); c.updateProjectionMatrix();
+    sun.target.position.copy(_sfT); sun.position.copy(sunDir).multiplyScalar(Math.max(200,h*3)).add(_sfT); sun.shadow.normalBias=0.02+h*0.0004; sun.shadow.bias=-0.0002; } }
 function flyTo(pos,target,dur=2.6){tween={p0:camera.position.clone(),t0:controls.target.clone(),p1:pos.clone(),t1:target.clone(),s:performance.now(),d:dur*1000};}
 
 // ================= model loading (base64 GLB in companion scripts, loaded on demand)
 const loader=new GLTFLoader(); { const dl=new DRACOLoader(); dl.setDecoderPath('./'); dl.setDecoderConfig({type:'js'}); loader.setDRACOLoader(dl); }
 const b64=s=>{const bin=atob(s),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u.buffer;};
 const loaded={};
-const BUILD='40';   // bump on every release so browsers fetch the new model files (deploy_site.py does this automatically)
+const BUILD='41';   // bump on every release so browsers fetch the new model files (deploy_site.py does this automatically)
 const BUILD_DATE='2026-10-12';
 { const v=document.getElementById('ver'); if(v) v.textContent='v1.'+BUILD+' \u00b7 '+BUILD_DATE; }
 // ---- photographic sky (CC0 HDRI, Poly Haven 'kloofendal 48d partly cloudy, pure sky'): background, reflections, sun direction and haze colour
@@ -1374,6 +1380,7 @@ async function initShip(){
         if(/Grating/.test(mn)){ patternMat(o.material,'grat'); o.material.side=THREE.DoubleSide; o.userData.noShadow=1; } else if(/FloorPlate/.test(mn)) patternMat(o.material,'chq'); } }
     (layerObjs[layer]??=[]).push(o); });
   ship.traverse(o=>{ if(o.isMesh&&/^DK_(WinchingArea|Walkways)/.test(o.name)){ o.material=o.material.clone(); o.material.polygonOffset=true; o.material.polygonOffsetFactor=-4; o.material.polygonOffsetUnits=-4; o.renderOrder=1; } });
+  { const an=renderer.capabilities.getMaxAnisotropy(); ship.traverse(o=>{ if(o.isMesh){ for(const m of (Array.isArray(o.material)?o.material:[o.material])) for(const k of ['map','normalMap','roughnessMap','emissiveMap']) if(m&&m[k]){ m[k].anisotropy=an; m[k].needsUpdate=true; } } }); }
   sea=makeOcean(); sea.position.set(90,11.0,0); shipGroup.add(sea); shipGroup.add(sky); sky.position.copy(B(90,0,0)); voyageAttach();
   ship.traverse(o=>{ if(!o.isMesh) return; const m=o.material; const tr=m&&(m.transparent&&m.opacity<0.9); o.castShadow=!tr&&!o.userData.noShadow; o.receiveShadow=!tr; });
   const pt=ship.getObjectByName('PumpTop_3P');
@@ -1949,6 +1956,7 @@ function loop(now){
   }
   { const er=!!(cutaway&&shipGroup.visible); erLights.visible=er; if(!shipEnvOn&&!uwOn){ renderer.toneMappingExposure=er?0.78:1.05; hemi.intensity=er?0.38:0.6; sun.intensity=er?0.9:1.4; } } tourTick(); lifeTick(performance.now()/1000); { const now=performance.now(), dt=Math.min(0.1,(now-spinT)/1000); spinT=now; for(const o of SPIN) o.rotation.y+=dt*o.userData.spin*Math.PI/30*(reduce?0:1); } const below=!!(shipGroup.visible&&mode==='ship'&&!cutaway&&camera.position.y<10.9); if(below){ uwEnv(true); if(sea) sea.visible=false; uwTick(performance.now()/1000); } else { if(uwOn){ uwEnv(false); if(sea) sea.visible=!cutaway&&!underwater; } shipEnv(!!(shipGroup.visible&&mode==='ship'&&!underwater&&!cutaway)); } if(sea&&sea.material.uniforms&&!reduce) sea.material.uniforms.time.value+=1/90; { const tt=performance.now()/1000, vd=Math.min(0.1,tt-(loop._vt||tt)); loop._vt=tt; wxTick(vd); voyageTick(tt,vd); condTick(); wxLive(tt); washTick(tt,vd); navLightsTick(); nightApply(); screensTick(tt); lbSeeThrough(); consoleTick(tt,vd); }
   if(composer===null&&AO_ON&&!loop._ao){ loop._ao=1; setupComposer(); resize(); }
+  shadowFit();
   if(composer) composer.render(); else renderer.render(scene,camera); requestAnimationFrame(loop);
 }
 
