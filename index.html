@@ -252,7 +252,7 @@ function flyTo(pos,target,dur=2.6){tween={p0:camera.position.clone(),t0:controls
 const loader=new GLTFLoader(); { const dl=new DRACOLoader(); dl.setDecoderPath('./'); dl.setDecoderConfig({type:'js'}); loader.setDRACOLoader(dl); }
 const b64=s=>{const bin=atob(s),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u.buffer;};
 const loaded={};
-const BUILD='50';   // bump on every release so browsers fetch the new model files (deploy_site.py does this automatically)
+const BUILD='51';   // bump on every release so browsers fetch the new model files (deploy_site.py does this automatically)
 const BUILD_DATE='2026-10-13';
 { const v=document.getElementById('ver'); if(v) v.textContent='v1.'+BUILD+' \u00b7 '+BUILD_DATE; }
 // ---- photographic sky (CC0 HDRI, Poly Haven 'kloofendal 48d partly cloudy, pure sky'): background, reflections, sun direction and haze colour
@@ -2375,11 +2375,10 @@ let scrT=0;
 function screensTick(t){ if(!ship) return; if(t-scrT<0.08) return; scrT=t; const near=camera.position.distanceTo(B(27,0,33))<40; if(!near) return;
   drawRadar(SCREENS.radar_x,'x',t); drawRadar(SCREENS.radar_s,'s',t); drawEcdis(SCREENS.ecdis_1,t,true); drawEcdis(SCREENS.ecdis_2,t+20,false); drawConning(SCREENS.conning,t); }
 function voyageAttach(){ // called once the ship is loaded
-  ship.traverse(o=>{ if(/^CREW_/.test(o.name)) o.visible=false; });
   { const bb=new THREE.Box3(); ship.updateMatrixWorld(true); voyageAttach.subm=[];   // animation props parked under the sea surface: keep them hidden so waves never uncover them
     ship.children.forEach(o=>{ if(/^(Hull|WK_|COT_|WBT_|SLOP_|FPT|COFF_|ER_|TK_|APP_|hs_|ENV_)/.test(o.name)) return; bb.setFromObject(o); if(bb.isEmpty()) return;
       if(bb.max.y<10.6&&(Math.abs(bb.min.z)>16.4||Math.abs(bb.max.z)>16.4||bb.max.x<-6||bb.min.x>185)) voyageAttach.subm.push(o); }); }
-  if(!/nodet/.test(location.search)) try{ shipDetail(); }catch(e){ console.error(e); }   // low-poly crew figures withdrawn until realistic people replace them
+  if(!/nodet/.test(location.search)) try{ shipDetail(); }catch(e){ console.error(e); }   // crew: MakeHuman (MPFB) figures in PPE, baked static
   setTimeout(()=>{ try{ condAttach(); }catch(e){ console.error(e); } },0);
   ship.traverse(o=>{ if(!o.isMesh) return; const mn=(o.material&&o.material.name)||'';
     if(/^WK_/.test(o.name)){ const kind=/Wake/.test(o.name)?'wake':(/BowWave/.test(o.name)?'bow':'hull'); o.material=foamMat(kind); o.renderOrder=4; o.castShadow=false; o.receiveShadow=false; FOAM.push(o); }
