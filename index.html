@@ -148,6 +148,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
   .stage-tools .tbtn{white-space:nowrap;flex:0 0 auto;padding:8px 10px}
   .navdock{bottom:8px;max-width:calc(100% - 16px)}
   .hs{font-size:11px}
+  .stage-note{display:none}
 }
 </style>
 
@@ -251,7 +252,7 @@ function flyTo(pos,target,dur=2.6){tween={p0:camera.position.clone(),t0:controls
 const loader=new GLTFLoader(); { const dl=new DRACOLoader(); dl.setDecoderPath('./'); dl.setDecoderConfig({type:'js'}); loader.setDRACOLoader(dl); }
 const b64=s=>{const bin=atob(s),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u.buffer;};
 const loaded={};
-const BUILD='49';   // bump on every release so browsers fetch the new model files (deploy_site.py does this automatically)
+const BUILD='50';   // bump on every release so browsers fetch the new model files (deploy_site.py does this automatically)
 const BUILD_DATE='2026-10-13';
 { const v=document.getElementById('ver'); if(v) v.textContent='v1.'+BUILD+' \u00b7 '+BUILD_DATE; }
 // ---- photographic sky (CC0 HDRI, Poly Haven 'kloofendal 48d partly cloudy, pure sky'): background, reflections, sun direction and haze colour
@@ -1734,15 +1735,18 @@ const TOUR=[
  {t:'ISF Quest, an MR product tanker',d:'A 50,000 dwt medium-range tanker: 183 m long, 32.2 m beam, twelve cargo tanks plus two slop tanks in a double hull, each tank with its own deepwell pump. Accommodation and engine room are aft; the cargo deck runs forward to the forecastle.',c:[228,-120,70],g:[95,0,15],f:4},
  {t:'Accommodation front and gallery',d:'From the gallery at the front of the house you look forward along the cargo deck. Foam monitors stand port and starboard; there are no accommodation doors on this front, because doors facing the cargo area are restricted (SOLAS II-2 Reg 4.5.2).',c:[31.8,0,21.4+E_],g:[70,0,21.6],sel:'GA_FoamMonitors'},
  {t:'The catwalk',d:'The raised catwalk on the centreline lets the crew walk the length of the deck clear of the pipes. The fire main (red) and foam main (yellow) run under it, with hydrants and hose boxes at the stations along its length.',c:[46,0,21.4+E_],g:[90,0,21.8],sel:'GA_Catwalk'},
+ {t:'Foam monitors',d:'Foam monitors on railed platforms along the cargo deck, each on a riser from the foam main with an isolating valve. The monitor trains on its swivel base and elevates with handwheels; foam concentrate is mixed at the proportioner and air drawn in at the barrel. Together they cover the whole cargo deck at 75% of their throw (FSS Code Ch.14).',c:[85.4,4.4,23.9],g:[89.2,9.5,22.2],sel:'GA_FoamMonitors'},
  {t:'Deepwell cargo pump',d:'Each cargo tank has a hydraulically driven deepwell pump. On deck you see its head: the discharge valve, the hydraulic supply and return, and the cofferdam purge connection. The discharge line runs up to the deck cargo lines on the pipe rack.',c:[96.5,10.5,19.1+E_],g:[100.6,7,20.2],sel:'PumpTop_3P'},
  {t:'Tank-top fittings',d:'Every tank has a bolted access hatch, two fixed tank-cleaning machines, a radar level gauge for closed gauging, a vapour-lock valve for closed sampling, and a high-velocity P/V valve on its vent riser.',c:[111,12.8,19.1+E_],g:[115.5,9.5,19.8],sel:'GA_TankTop_3P'},
  {t:'Cargo manifold',d:'Eight segregated cargo connections each side, with valves, pressure gauges, reducers and blank flanges over a drip tray. The hose crane lifts the shore hoses or the arms to the flanges.',c:[90,-15.2,19.1+E_],g:[97,-12,20.6],sel:'GA_ManifoldValves'},
  {t:'Bunker station',d:'Fuel oil is received here, forward of the cargo manifold: VLSFO and MGO connections with valves, gauges and their own drip tray. A bunker checklist, plugged scuppers and SOPEP gear ready are standard.',c:[110,-15.2,19.1+E_],g:[104,-13.4,19.9],sel:'BK_BunkerStation'},
  {t:'Pilot boarding point',d:'Amidships on each side: the pilot ladder, handhold stanchions, a lifebuoy with light and heaving line, and a light over the side (SOLAS V Reg 23).',c:[64,12.5,19.1+E_],g:[70,16.2,19.2]},
  {t:'Helicopter winching area',d:'Painted on the deck where it is clearest: a solid yellow winching zone and a broken manoeuvring circle, with WINCH ONLY in white. Helicopters do not land here; they lower people or stores by winch.',c:[120,30,42],g:[144,9.5,19.4],sel:'DK_WinchingArea'},
+ {t:'Mooring winches',d:'Hydraulic double-drum mooring winches with split drums: lines are held on the band brakes, not the motor, and the brakes are set to about 60% of the line strength and tested regularly. Stand clear of snap-back zones (OCIMF MEG4).',c:[145.8,8.4,22.2],g:[149.5,12.0,20.1],sel:'MW_FwdSpringWinches'},
  {t:'Forecastle',d:'Windlasses with cable lifters for both anchors, forward mooring winches, the bell and the foremast with the forward masthead and anchor lights. The emergency towing strongpoint is at the bow.',c:[163,-3,21.7+E_],g:[175,0,22.4],sel:'FC_Windlass'},
  {t:'Bow and anchors',d:'Stockless bower anchors in the hawse pipes, and the bulbous bow below the waterline. The forward emergency towing arrangement must be deployable within one hour.',c:[205,-28,24],g:[180,-3,15],sel:'FC_Anchors'},
  {t:'Main deck beside the house',d:'The accommodation entrances are on the sides, more than 5 m aft of the front. Liferafts in their cradles stand beside the house on both sides.',c:[38,-14.6,19.1+E_],g:[25,-12.8,20.4]},
+ {t:'CO2 room',d:'The fixed CO2 system for the engine room: 45 kg cylinders racked and clamped, each with a discharge head and flexible loop to the manifold. Release is from the locked cabinet outside: open it (alarm sounds, fans stop), evacuate, then valve 1 to the engine room and valve 2 for the bottles (FSS Code Ch.5).',c:[11.6,-8.2,21.3],g:[9.3,-6.3,20.0],near:1,sel:'AC_U_CO2Room'},
  {t:'Rescue boat',d:'The fast rescue boat on its davit, starboard side, for recovering a person overboard and marshalling liferafts (SOLAS III Reg 31; LSA Code 5.1).',c:[25,-15.3,22.4+E_],g:[16,-14,23.6],sel:'LSA_RescueBoat'},
  {t:'Poop deck and aft mooring',d:'Aft mooring winches and bitts, the provision crane, the garbage station, and the aft emergency towing arrangement on its drum.',c:[10,-9,19.1+E_],g:[-3,2,20.3],sel:'ETA_Aft'},
  {t:'Free-fall lifeboat',d:'A totally enclosed, fire-protected lifeboat for everyone on board, launched by free fall from the stern frame. The crew strap in facing aft and the coxswain releases from inside.',c:[-22,16,26],g:[2,0,25],sel:'LSA_Lifeboat'},
@@ -1753,6 +1757,8 @@ const TOUR=[
  {t:'Generators',d:'Three diesel generator sets on the 3rd deck aft of the main engine. At sea one or two share the load and one stands by to start automatically on blackout; in port the cargo pump HPUs need more.',c:[21.0,-6.0,12.6],g:[12,-5.5,10.2],cut:1,near:1,sel:'EM_Generators'},
  {t:'Purifier room',d:'Separators clean heavy fuel, gas oil and lube oil of water and solids. Fuel is heated, spun in a disc-stack bowl and the sludge is discharged automatically.',c:[15.2,3.0,9.2+E_+0.3],g:[14,8.0,9.8],cut:1,near:1,sel:'EM_PurifierRoom'},
  {t:'Engine control room',d:'The engineers watch the plant from here: alarm-monitoring and power-management screens on the console, and the main switchboard with generator, synchronising and feeder panels along the outboard wall.',c:[25.0,-6.6,14.7+E_],g:[29.5,-12,15.4],cut:1,near:1,sel:'EM_ECR'},
+ {t:'Emergency fire pump',d:'Outside the engine room: a vertical-shaft pump with its bowl below the lightest waterline and its own sea suction, driven by a motor on the emergency switchboard. It must give two jets at any two hydrants with the engine room lost; tested weekly (SOLAS II-2 Reg 10.2; FSS Code Ch.12).',c:[7.6,-0.6,17.0],g:[5.4,1.6,15.6],cut:1,near:1,sel:'FFA_EmFirePump'},
+ {t:'Exhaust gas economiser',d:'In the uptake above the engine room: tube stacks make steam from the main-engine exhaust at sea. Soot fires start at low load or with dirty tubes, so circulation is kept running and the tubes are soot-blown regularly. The silencer with spark arrestor sits above.',c:[14.8,-3.5,26.5],g:[10.5,0.6,25.0],cut:1,sel:'EM_ExhGasEconomiser'},
  {t:'Steering gear room',d:'Two hydraulic power units drive the rotary-vane steering gear on the rudder stock. The local stand is used for emergency steering, with a gyro repeater and a telephone to the bridge.',c:[8.5,-7.5,13+E_+0.8],g:[1,0,13.6],cut:1,near:1,sel:'EM_SteeringGearRoom'},
  {t:'Rudder and propeller',d:'Below the waterline at the stern: the fixed-pitch propeller and the semi-balanced rudder, moved by the steering gear in the compartment above.',c:[-28,-22,2],g:[-2,0,4],uw:1}
 ];
@@ -2442,6 +2448,7 @@ function exitInside(){ const tg=controls.target.clone(), dir=camera.position.clo
 renderer.domElement.addEventListener('wheel',e=>{ if(e.deltaY<=0||!insideNow()||shipAnim||tourI>=0) return; const now=performance.now(); if(now-zExitT<900) return;
   const dist=camera.position.distanceTo(controls.target); if(controls.maxDistance>=700){ controls.maxDistance=Math.max(dist*1.3,underwater?ZLIM.uw:accDeck?ZLIM.acc:controls.minDistance<0.4?ZLIM.bridge:cutaway?(controls.minDistance<0.8?ZLIM.er:ZLIM.tank):ZLIM.tank); }
   if(dist>=controls.maxDistance*0.96){ zExitT=now; exitInside(); } },{passive:true});
+
 
 (async()=>{ try{ await initShip(); }catch(e){ $('#loading').textContent='The 3D model could not load. Reload the page to try again.'; console.error(e); return; }
   $('#loading').hidden=true; resize(); showShip(); requestAnimationFrame(loop); })();
