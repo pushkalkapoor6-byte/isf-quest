@@ -142,6 +142,12 @@ input[type=range]{width:100%;accent-color:var(--accent)}
   .app{height:auto;min-height:100%}
   .chip{margin-left:0}
   .caption{max-width:calc(100% - 24px);top:auto;bottom:34px}
+  main{grid-template-rows:62vh auto}
+  .stage-tools{left:8px;right:8px;top:8px;flex-direction:row;flex-wrap:nowrap;overflow-x:auto;gap:4px;padding-bottom:4px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .stage-tools::-webkit-scrollbar{display:none}
+  .stage-tools .tbtn{white-space:nowrap;flex:0 0 auto;padding:8px 10px}
+  .navdock{bottom:8px;max-width:calc(100% - 16px)}
+  .hs{font-size:11px}
 }
 </style>
 
@@ -245,7 +251,7 @@ function flyTo(pos,target,dur=2.6){tween={p0:camera.position.clone(),t0:controls
 const loader=new GLTFLoader(); { const dl=new DRACOLoader(); dl.setDecoderPath('./'); dl.setDecoderConfig({type:'js'}); loader.setDRACOLoader(dl); }
 const b64=s=>{const bin=atob(s),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u.buffer;};
 const loaded={};
-const BUILD='48';   // bump on every release so browsers fetch the new model files (deploy_site.py does this automatically)
+const BUILD='49';   // bump on every release so browsers fetch the new model files (deploy_site.py does this automatically)
 const BUILD_DATE='2026-10-13';
 { const v=document.getElementById('ver'); if(v) v.textContent='v1.'+BUILD+' \u00b7 '+BUILD_DATE; }
 // ---- photographic sky (CC0 HDRI, Poly Haven 'kloofendal 48d partly cloudy, pure sky'): background, reflections, sun direction and haze colour
@@ -1395,13 +1401,14 @@ async function initShip(){
 }
 function addHotspot(key,t,wp,ready){ const el=document.createElement('button'); el.className='hs'+(ready?' ready':''); el.innerHTML=`<i></i>${t}`; el.title='Training module: '+t; el.onclick=()=>hotspotClick(key); stage.appendChild(el); hotspotEls.push({el,wp}); }
 // names of the ship's main areas (Blender coordinates); click flies there
-const INSIDE=new Set(['HFO storage tanks','MGO storage tanks','Settling and service tanks','Double-bottom tanks (LO, sludge, bilge)','Fresh-water tanks','Bilge wells','Emergency generator room','Main engine','Generators','Purifier room','Starting air','Pumps and coolers','Engine control room','HPU room','Workshop','Auxiliary boiler','Floor plates (4.2 m)','3rd deck (9.2 m)','2nd deck (14.7 m)','Escape trunk','Bulbous bow','Fore peak tank','Engine room','Steering gear room','Rudder and propeller','Forward cofferdam','Aft cofferdam','Slop tanks']);
+const INSIDE=new Set(['HFO storage tanks','MGO storage tanks','Settling and service tanks','Double-bottom tanks (LO, sludge, bilge)','Fresh-water tanks','Bilge wells','Emergency generator room','Main engine','Generators','Purifier room','Starting air','Pumps and coolers','Engine control room','HPU room','Workshop','Auxiliary boiler','Floor plates (4.2 m)','3rd deck (9.2 m)','2nd deck (14.7 m)','Escape trunk','Bulbous bow','Fore peak tank','Engine room','Steering gear room','Rudder and propeller','Forward cofferdam','Aft cofferdam','Slop tanks','CO2 room','Emergency fire pump','Exhaust gas economiser']);
 const AREAS=[['Forecastle',176,0,24.5],['Foremast',165.8,0,39.4],['Bulbous bow',186,0,4],['Fore peak tank',176,0,9],['Forward cofferdam',159,7,21],
  ['No.1 cargo tanks',148,-9,20.6],['No.2 cargo tanks',128.6,-9,20.6],['No.3 cargo tanks',108.9,-9,20.6],['No.4 cargo tanks',89.3,-9,20.6],['No.5 cargo tanks',69.6,-9,20.6],['No.6 cargo tanks',49.9,-9,20.6],
  ['Slop tanks',37,-9,20.6],['Aft cofferdam',33,11,20.4],['Catwalk',118,0,23.4],['Cargo manifold',97,-13,22.6],['Bunker stations',104,13.6,21.2],['Pilot boarding (port)',70,16,21.3],['Helicopter winching area',144,9.5,19.8],
  ['Accommodation',20,12.6,27],['Navigation bridge',27,0,36],['Bridge wing',28.6,-16.3,33.6],['Funnel',10,0,40.6],['Engine room',19,0,12],['Steering gear room',0,0,16],['Poop deck / aft mooring',1,9,20.8],['HFO storage tanks',27,13,11],['MGO storage tanks',17,13,12],['Settling and service tanks',29.8,-9,11.5],['Double-bottom tanks (LO, sludge, bilge)',22,0,1.0],['Fresh-water tanks',7.8,10,14],['Bilge wells',30.6,-12,2.0],['Emergency generator room',12.5,5.8,20.6],['Ensign (Indian civil ensign)',-6.6,-4.6,25.6],['ISF house flag',-6.2,6.4,25.6],['Flag B (dangerous cargo)',164.9,-1.65,34.2],
  ['Main engine',23.9,0,13.4],['Generators',13.5,-5.4,12.2],['Purifier room',14.2,6.2,12.4],['Starting air',23.1,6.4,12.6],['Pumps and coolers',28,-7,7.2],['Engine control room',27.7,-9.2,18.0],['HPU room',27.7,8,18.0],['Workshop',20.3,9.2,16.6],['Auxiliary boiler',13.6,-8,19.6],['Floor plates (4.2 m)',22,8.5,4.6],['3rd deck (9.2 m)',30,10,9.6],['2nd deck (14.7 m)',30,-13.5,15.1],['Escape trunk',8.9,-2.3,17.0],
- ['Free-fall lifeboat',2,0,29],['Rescue boat',16,-14.2,25.6],['Liferafts',28.5,13.6,24.2],['Rudder and propeller',-3,0,3]];
+ ['Free-fall lifeboat',2,0,29],['Rescue boat',16,-14.2,25.6],['Liferafts',28.5,13.6,24.2],['Rudder and propeller',-3,0,3],
+ ['CO2 room',10,-6.6,22.6],['Emergency fire pump',5.3,1.4,17.2],['Exhaust gas economiser',10.5,0.6,26.4],['Foam monitors',89,9.5,24.4],['Mooring winches (aft spring)',149.5,12,21.6],['Fireman\'s outfits',31.3,7.6,21.6],['Windlasses',167.4,0,24.2]];
 function addAreaLabels(){ for(const [t,x,y,z] of AREAS){ const el=document.createElement('button'); el.className='hs area'; el.innerHTML=`<i></i>${t}`; const wp=B(x,y,z);
   el.onclick=()=>{ const dir=camera.position.clone().sub(controls.target).normalize(); flyTo(wp.clone().add(dir.multiplyScalar(45)),wp,1.4); }; stage.appendChild(el); hotspotEls.push({el,wp,area:true,inside:INSIDE.has(t)}); } }
 const LBL=['all','areas','mods','off'], LBLT={all:'Labels: all',areas:'Labels: areas',mods:'Labels: modules',off:'Labels: off'};
