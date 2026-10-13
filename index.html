@@ -143,13 +143,49 @@ input[type=range]{width:100%;accent-color:var(--accent)}
   .chip{margin-left:0}
   .caption{max-width:calc(100% - 24px);top:auto;bottom:34px}
   main{grid-template-rows:62vh auto}
-  .stage-tools{left:8px;right:8px;top:8px;flex-direction:row;flex-wrap:nowrap;overflow-x:auto;gap:4px;padding-bottom:4px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
   .stage-tools::-webkit-scrollbar{display:none}
   .stage-tools .tbtn{white-space:nowrap;flex:0 0 auto;padding:8px 10px}
   .navdock{bottom:8px;max-width:calc(100% - 16px)}
   .hs{font-size:11px}
   .stage-note{display:none}
 }
+
+/* ---- UX v2: grouped stage toolbar, menus, state chips, quick card, first-visit help ---- */
+.stage-tools{left:12px;right:auto;top:12px;flex-direction:row;flex-wrap:wrap;align-items:flex-start;gap:6px;max-width:calc(100% - 24px);z-index:5}
+.stage-tools .tbtn{white-space:nowrap;padding:7px 12px;font-size:12.5px;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+.stage-tools .tbtn.pri{border-color:var(--accent);color:var(--accent);font-weight:600}
+.menu{position:relative}
+.mpop{position:absolute;left:0;top:calc(100% + 6px);min-width:220px;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:6px;box-shadow:0 10px 28px rgba(0,0,0,.4);z-index:7;display:flex;flex-direction:column;gap:2px}
+.mpop .mh{font:600 10.5px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:8px 8px 4px}
+.mpop .mi{display:flex;justify-content:space-between;align-items:center;gap:12px;width:100%;text-align:left;background:none;border:0;border-radius:4px;padding:8px 10px;font:500 13px var(--f-body);color:var(--fg);cursor:pointer;text-decoration:none;box-sizing:border-box}
+.mpop .mi:hover,.mpop .mi:focus-visible{background:var(--raise);outline:none}
+.mpop .mi[aria-pressed="true"]::after{content:"On";font:600 10.5px var(--f-mono);color:var(--accent)}
+.mpop .mi small{color:var(--muted);font:400 11px var(--f-body)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.chip2{display:inline-flex;align-items:center;gap:6px;padding:5px 6px 5px 10px;border-radius:14px;border:1px solid var(--accent);background:color-mix(in srgb,var(--panel) 90%,transparent);color:var(--accent);font:600 11.5px var(--f-body);cursor:pointer}
+.chip2 b{display:grid;place-items:center;width:16px;height:16px;border-radius:50%;background:color-mix(in srgb,var(--accent) 22%,transparent);font-size:10px}
+.qcard{position:absolute;right:12px;bottom:70px;width:min(360px,calc(100% - 24px));background:color-mix(in srgb,var(--panel) 95%,transparent);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:6px;padding:10px 12px;z-index:4;box-shadow:0 8px 24px rgba(0,0,0,.35)}
+.qcard h3{margin:0 24px 4px 0;font:600 14px var(--f-body);color:var(--fg)}
+.qcard p{margin:0 0 8px;font:400 12.5px/1.45 var(--f-body);color:var(--muted);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.qcard .qa{display:flex;gap:6px;flex-wrap:wrap}
+.qcard .qa button{background:var(--raise);border:1px solid var(--line);border-radius:4px;padding:5px 10px;font:500 12px var(--f-body);color:var(--fg);cursor:pointer}
+.qcard .qa button.pri{border-color:var(--accent);color:var(--accent)}
+.qcard .x{position:absolute;right:6px;top:6px;background:none;border:0;color:var(--muted);font-size:16px;cursor:pointer;padding:2px 6px}
+.helpcard{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(440px,calc(100% - 32px));background:var(--panel);border:1px solid var(--accent);border-radius:8px;padding:16px 18px;z-index:8;box-shadow:0 14px 40px rgba(0,0,0,.5)}
+.helpcard h3{margin:0 0 10px;font:600 16px var(--f-body)} .helpcard table{border-collapse:collapse;width:100%;font:400 13px var(--f-body);margin-bottom:12px}
+.helpcard td{padding:5px 8px 5px 0;vertical-align:top} .helpcard td:first-child{color:var(--accent);font-weight:600;white-space:nowrap}
+.helpcard .row{display:flex;gap:8px;justify-content:flex-end}
+.helpcard button{background:var(--raise);border:1px solid var(--line);border-radius:4px;padding:7px 14px;font:500 13px var(--f-body);color:var(--fg);cursor:pointer} .helpcard button.pri{border-color:var(--accent);color:var(--accent)}
+#panel details.psec{border-bottom:1px solid var(--line)} #panel details.psec>summary{cursor:pointer;list-style:none;padding:14px 18px;font:600 11px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between}
+#panel details.psec>summary::-webkit-details-marker{display:none} #panel details.psec>summary::after{content:"+";font-size:14px} #panel details.psec[open]>summary::after{content:"\2212"}
+#panel details.psec>.in{padding:0 18px 14px}
+#panel .sticky{position:sticky;top:0;z-index:2;background:var(--panel)}
+.stage-note{display:none}
+@media (max-width:860px){ .stage-tools{left:8px;right:8px;max-width:none;overflow:visible} .qcard{left:8px;right:8px;width:auto;bottom:64px}
+  #p_view{left:auto;right:0} .mpop{max-width:calc(100vw - 24px)}
+  header{padding:8px 12px;gap:6px 12px} .brand{font-size:17px} .brand small{font-size:10px} #crumbs:not(:has(button)){display:none}
+  .nb[data-nav="rl"],.nb[data-nav="rr"],.nb[data-nav="tu"],.nb[data-nav="td"],.nb[data-nav="spin"],.nb[data-nav="speed"]{display:none}
+  .navdock .sep{display:none} .navdock{bottom:8px;flex-wrap:nowrap} }
 </style>
 
 <div class="app">
@@ -252,8 +288,8 @@ function flyTo(pos,target,dur=2.6){tween={p0:camera.position.clone(),t0:controls
 const loader=new GLTFLoader(); { const dl=new DRACOLoader(); dl.setDecoderPath('./'); dl.setDecoderConfig({type:'js'}); loader.setDRACOLoader(dl); }
 const b64=s=>{const bin=atob(s),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u.buffer;};
 const loaded={};
-const BUILD='51';   // bump on every release so browsers fetch the new model files (deploy_site.py does this automatically)
-const BUILD_DATE='2026-10-13';
+const BUILD='52';   // bump on every release so browsers fetch the new model files (deploy_site.py does this automatically)
+const BUILD_DATE='2026-10-14';
 { const v=document.getElementById('ver'); if(v) v.textContent='v1.'+BUILD+' \u00b7 '+BUILD_DATE; }
 // ---- photographic sky (CC0 HDRI, Poly Haven 'kloofendal 48d partly cloudy, pure sky'): background, reflections, sun direction and haze colour
 const SKY={bg:null};
@@ -1397,7 +1433,7 @@ async function initShip(){
     const wp=new THREE.Vector3(); (o.name==='hs_dwp'&&pt?pt:o).getWorldPosition(wp); if(o.name==='hs_dwp') wp.y+=2.5;
     addHotspot(key,m.t,wp,!!MODS[key]||key==='hs_crane'); });
   addHotspot('hs_load',MODS.hs_load.t,B(106,7,23.5),true);
-  addAreaLabels(); hotspotEls.sort((a,b)=>(a.area?1:0)-(b.area?1:0)); let lm='all'; try{ lm=localStorage.getItem('tq_lbl')||'all'; }catch(e){} setLabels(lm);
+  addAreaLabels(); hotspotEls.sort((a,b)=>(a.area?1:0)-(b.area?1:0)); let lm='areas'; try{ lm=localStorage.getItem('tq_lbl')||'areas'; }catch(e){} setLabels(lm);
   setCutaway(false); setAcc(null);
 }
 function addHotspot(key,t,wp,ready){ const el=document.createElement('button'); el.className='hs'+(ready?' ready':''); el.innerHTML=`<i></i>${t}`; el.title='Training module: '+t; el.onclick=()=>hotspotClick(key); stage.appendChild(el); hotspotEls.push({el,wp}); }
@@ -1426,7 +1462,32 @@ function showShip(){
   camera.near=.5; camera.far=3000; camera.updateProjectionMatrix(); controls.minDistance=20; controls.maxDistance=700;
   if(!camera.userData.init){ camera.position.set(60,110,260); controls.target.set(98,6,0); camera.userData.init=1; }
   flyTo(new THREE.Vector3(60,92,235),new THREE.Vector3(98,6,0));
-  tools.innerHTML=`<button class="tbtn" id="tourb" style="border-color:var(--accent);color:var(--accent)">Ship tour</button><button class="tbtn" id="lbl" aria-pressed="true">Labels: all</button><button class="tbtn" id="cut" aria-pressed="${cutaway}">Cutaway</button><button class="tbtn" id="uw" aria-pressed="${underwater}">Underwater</button><button class="tbtn" id="bow">Bow</button><button class="tbtn" id="erb">Engine room</button><button class="tbtn" id="brg">Bridge</button><button class="tbtn" id="brgw">Bridge wing</button><button class="tbtn" id="accb" aria-pressed="false">Accommodation</button><button class="tbtn" id="wayb" aria-pressed="true">Under way</button><button class="tbtn" id="nightb" aria-pressed="false">Night</button><button class="tbtn" id="lightsb" hidden>Lights: under way</button><button class="tbtn" id="condb">Loading: Partly loaded</button><button class="tbtn" id="wxb">Weather</button><a class="tbtn" href="renders.html" target="_blank" rel="noopener" style="text-decoration:none;text-align:center">Photoreal views</a>`;
+  tools.innerHTML=`<button class="tbtn pri" id="tourb">\u25b6 Ship tour</button>
+  <div class="menu"><button class="tbtn" id="m_go" aria-haspopup="true" aria-expanded="false">Go to \u25be</button>
+   <div class="mpop" id="p_go" hidden role="menu">
+    <button class="mi" id="homeb" role="menuitem">Whole ship <small>H</small></button>
+    <button class="mi" id="brg" role="menuitem">Navigation bridge</button>
+    <button class="mi" id="brgw" role="menuitem">Bridge wing</button>
+    <button class="mi" id="accb" role="menuitem" aria-pressed="false">Accommodation decks <small>next deck</small></button>
+    <button class="mi" id="erb" role="menuitem">Engine room <small>cutaway</small></button>
+    <button class="mi" id="bow" role="menuitem">Bow and anchors <small>underwater</small></button>
+    <a class="mi" href="renders.html" target="_blank" rel="noopener" role="menuitem">Photoreal views <small>\u2197</small></a>
+   </div></div>
+  <div class="menu"><button class="tbtn" id="m_view" aria-haspopup="true" aria-expanded="false">View \u25be</button>
+   <div class="mpop" id="p_view" hidden role="menu">
+    <div class="mh">Show</div>
+    <button class="mi" id="lbl" aria-pressed="true">Labels: all</button>
+    <button class="mi" id="cut" aria-pressed="${cutaway}">Cutaway <small>tanks, engine room</small></button>
+    <button class="mi" id="uw" aria-pressed="${underwater}">Underwater</button>
+    <div class="mh">Conditions</div>
+    <button class="mi" id="wayb" aria-pressed="true">Under way</button>
+    <button class="mi" id="nightb" aria-pressed="false">Night</button>
+    <button class="mi" id="lightsb" hidden>Lights: under way</button>
+    <button class="mi" id="condb">Loading: Partly loaded</button>
+    <button class="mi" id="wxb">Weather</button>
+   </div></div>
+  <div class="chips" id="chips"></div>`;
+  uxMenus();
   $('#cut').onclick=e=>{ setCutaway(!cutaway); if(cutaway){ underwater=false; hotspotEls.forEach(h=>h.el.hidden=false); $('#uw').setAttribute('aria-pressed',false); } e.target.setAttribute('aria-pressed',cutaway); };
   $('#uw').onclick=e=>{ setUnderwater(!underwater); e.target.setAttribute('aria-pressed',underwater); };
   $('#tourb').onclick=tourStart;
@@ -1448,15 +1509,53 @@ function showShip(){
   $('#bow').onclick=()=>{ if(!underwater){ setUnderwater(true); $('#uw').setAttribute('aria-pressed',true); } flyTo(new THREE.Vector3(205,0,-34),new THREE.Vector3(176,5,0)); };
   $('#snote').textContent='Drag to rotate \u00b7 right-drag to pan \u00b7 scroll to zoom \u00b7 click any part';
   crumbs();
-  panel.innerHTML=`<div class="sec"><h2>Ship overview</h2><p class="muted"><b>ISF Quest</b> \u2014 generic 50,000 dwt MR product tanker (port of registry Mumbai): LOA about 183 m, beam 32.2 m, depth 19.1 m, summer draught about 13.3 m. Arrangement checked against a shipyard general arrangement drawing and photographs of current 50,000 dwt MR tankers. Six pairs of cargo tanks plus two slop tanks inside a 2 m double hull with U-shaped ballast tanks; one deepwell pump per tank. Four-level accommodation and bridge aft with a free-fall lifeboat at the stern; single hose crane at the midships manifold; windlasses and forward mooring winches on a flared forecastle; spring winches on the main deck fore and aft. Click any item for its description. Use <b>Cutaway</b> for tanks and engine room, <b>Underwater</b> for the bulbous bow, rudder and propeller.</p></div>
-  <div class="sec"><h3>Find a part or rule</h3><input class="psearch" id="psearch" type="search" placeholder="e.g. lifeboat, sidelight, III Reg 7, MARPOL" aria-label="Search parts or regulations" autocomplete="off"><ul class="sres" id="sres"></ul></div>
-  <div class="sec"><h3>Selected part</h3><div id="sel"><p class="muted">Click any part of the ship, or search above, to see what it is, how it works and the rule that governs it.</p></div></div>
-  <div class="sec"><h3>Layers</h3><div class="layers">${Object.entries(LAYERS).map(([k,l])=>`<label><input type="checkbox" id="ly_${k}" ${l.on!==false?'checked':''}><i style="background:${l.c}"></i>${l.n}</label>`).join('')}</div></div>
-  <div class="sec"><h3>Modules</h3><ul class="mods">${[...Object.entries(MODS).map(([k,m])=>[k,m.t,true]),...Object.entries(PLANNED).map(([k,m])=>[k,m.t,false])].map(([k,t,r])=>`<li><button data-m="${k}"><span>${t}</span><span class="pill ${r?'ready':''}">${r?'Open':'Planned'}</span></button></li>`).join('')}</ul><div id="modinfo"></div></div>`;
+  panel.innerHTML=`<div class="sec sticky"><input class="psearch" id="psearch" type="search" placeholder="Find a part or rule: lifeboat, sidelight, MARPOL\u2026" aria-label="Search parts or regulations" autocomplete="off"><ul class="sres" id="sres"></ul></div>
+  <div class="sec" id="selsec"><h3>Selected part</h3><div id="sel"><p class="muted">Click any part of the ship, or search above, to see what it is, how it works and the rule that governs it.</p></div></div>
+  <details class="psec"><summary>Ship overview</summary><div class="in"><p class="muted"><b>ISF Quest</b> \u2014 generic 50,000 dwt MR product tanker (port of registry Mumbai): LOA about 183 m, beam 32.2 m, depth 19.1 m, summer draught about 13.3 m. Arrangement checked against a shipyard general arrangement drawing and photographs of current 50,000 dwt MR tankers. Six pairs of cargo tanks plus two slop tanks inside a 2 m double hull with U-shaped ballast tanks; one deepwell pump per tank. Four-level accommodation and bridge aft with a free-fall lifeboat at the stern; single hose crane at the midships manifold; windlasses and forward mooring winches on a flared forecastle; spring winches on the main deck fore and aft. Click any item for its description. Use <b>Cutaway</b> for tanks and engine room, <b>Underwater</b> for the bulbous bow, rudder and propeller.</p></div></details>
+  <details class="psec"><summary>Layers</summary><div class="in"><div class="layers">${Object.entries(LAYERS).map(([k,l])=>`<label><input type="checkbox" id="ly_${k}" ${l.on!==false?'checked':''}><i style="background:${l.c}"></i>${l.n}</label>`).join('')}</div></div></details>
+  <details class="psec"><summary>Training modules</summary><div class="in"><ul class="mods">${[...Object.entries(MODS).map(([k,m])=>[k,m.t,true]),...Object.entries(PLANNED).map(([k,m])=>[k,m.t,false])].map(([k,t,r])=>`<li><button data-m="${k}"><span>${t}</span><span class="pill ${r?'ready':''}">${r?'Open':'Planned'}</span></button></li>`).join('')}</ul><div id="modinfo"></div></div></details>
+  <details class="psec"><summary>Help and controls</summary><div class="in"><p class="muted">Drag to look around, right-drag to move sideways, scroll to zoom, click any part. Keyboard: arrows rotate and tilt, + and \u2212 zoom, F frames the selection, H resets the view.</p><button class="tbtn" id="helpb">Show the welcome guide again</button></div></details>`;
+  { const hb=$('#helpb'); if(hb) hb.onclick=()=>uxHelp(true); }
   if(ship) buildSearch(); if(selShip) renderCard(selShip);
   for(const k of Object.keys(LAYERS)) $('#ly_'+k).onchange=e=>{ LAYERS[k].on=e.target.checked; (layerObjs[k]||[]).forEach(o=>o.visible=e.target.checked&&(k==='hull'||k==='deck'||k==='app'||cutaway)); };
   panel.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>hotspotClick(b.dataset.m));
 }
+
+// ---- UX v2 helpers
+function uxMenus(){ const pairs=[['m_go','p_go'],['m_view','p_view']];
+  const closeAll=ex=>pairs.forEach(([b,p])=>{ if(b===ex) return; const B_=$('#'+b),P_=$('#'+p); if(P_){ P_.hidden=true; B_.setAttribute('aria-expanded','false'); } });
+  pairs.forEach(([b,p])=>{ const B_=$('#'+b),P_=$('#'+p); if(!B_||!P_) return;
+    B_.onclick=e=>{ e.stopPropagation(); const open=P_.hidden; closeAll(b); P_.hidden=!open; B_.setAttribute('aria-expanded',String(open)); };
+    P_.addEventListener('click',e=>{ e.stopPropagation(); const t=e.target.closest('.mi'); if(t&&p==='p_go'&&t.id!=='accb') setTimeout(()=>closeAll(),0); }); });
+  if(!uxMenus.bound){ uxMenus.bound=1; document.addEventListener('click',()=>closeAll()); document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeAll(); }); }
+  const hb=$('#homeb'); if(hb) hb.onclick=()=>{ const h=document.querySelector('[data-nav="home"]'); if(h) h.click(); }; }
+let _chipsKey='';
+function uxChips(){ const el=$('#chips'); if(!el||mode!=='ship') return; const L=[];
+  if(cutaway) L.push(['Cutaway','cut']); if(underwater) L.push(['Underwater','uw']); if(typeof VOY!=='undefined'&&VOY.night) L.push(['Night','nightb']);
+  if(typeof accDeck!=='undefined'&&accDeck) L.push(['Deck '+accDeck,'accoff']); if(tourI>=0) L.push(['Tour '+(tourI+1)+'/'+TOUR.length,'tourx']);
+  const k=L.map(x=>x[0]).join('|'); if(k===_chipsKey) return; _chipsKey=k;
+  el.innerHTML=L.map(([t,id])=>`<button class="chip2" data-c="${id}" title="Turn off">${t}<b>\u2715</b></button>`).join('');
+  el.querySelectorAll('[data-c]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); const id=b.dataset.c;
+    if(id==='accoff'){ setAcc(null); } else if(id==='tourx'){ try{ tourEnd(); }catch(_){} } else { const t=$('#'+id); if(t) t.click(); } _chipsKey=''; uxChips(); }); }
+function uxQuick(o,title,text){ let q=$('#qcard'); if(!q){ q=document.createElement('div'); q.id='qcard'; q.className='qcard'; stage.appendChild(q); }
+  if(!o){ q.hidden=true; return; } q.hidden=false;
+  q.innerHTML=`<button class="x" aria-label="Close">\u2715</button><h3>${esc(title)}</h3><p>${esc(text||'')}</p><div class="qa"><button class="pri" data-q="det">Details and rules</button><button data-q="frame">Frame</button></div>`;
+  q.querySelector('.x').onclick=()=>{ q.hidden=true; highlight(null); };
+  q.querySelector('[data-q="det"]').onclick=()=>{ const s_=$('#sel'); if(s_){ if(window.innerWidth<=860) s_.scrollIntoView({behavior:'smooth',block:'start'}); else { panel.scrollTo({top:Math.max(0,s_.offsetTop-70),behavior:'smooth'}); } } };
+  q.querySelector('[data-q="frame"]').onclick=()=>navFit(); }
+function uxHelp(force){ let seen=false; try{ seen=localStorage.getItem('tq_help')==='1'; }catch(e){} if(seen&&!force) return;
+  let h=$('#helpcard'); if(h) h.remove(); h=document.createElement('div'); h.id='helpcard'; h.className='helpcard'; h.setAttribute('role','dialog'); h.setAttribute('aria-label','How to use');
+  const touch=matchMedia('(pointer:coarse)').matches;
+  h.innerHTML=`<h3>Welcome aboard ISF Quest</h3><table>
+   <tr><td>${touch?'One finger':'Left-drag'}</td><td>Look around the ship</td></tr>
+   <tr><td>${touch?'Two fingers':'Right-drag'}</td><td>Move the view sideways</td></tr>
+   <tr><td>${touch?'Pinch':'Scroll'}</td><td>Zoom in and out</td></tr>
+   <tr><td>${touch?'Tap':'Click'}</td><td>Any part to see what it is and the rules for it</td></tr>
+   <tr><td>Ship tour</td><td>Guided walk-through of the main equipment, step by step</td></tr>
+   <tr><td>Go to / View</td><td>Jump to the bridge, engine room or bow; switch cutaway, night and labels</td></tr></table>
+   <div class="row"><button id="hcTour" class="pri">Start the ship tour</button><button id="hcOk">Explore on my own</button></div>`;
+  stage.appendChild(h); const done=()=>{ h.remove(); try{ localStorage.setItem('tq_help','1'); }catch(e){} };
+  $('#hcOk').onclick=done; $('#hcTour').onclick=()=>{ done(); tourStart(); }; }
 function crumbs(){ const c=$('#crumbs');
   if(mode==='ship') c.innerHTML='<span>ISF Quest \u00b7 MR product tanker \u00b7 general arrangement</span>';
   else { c.innerHTML=`<button id="back">MR product tanker</button><span>\u203a</span><span>${active.mod.crumb.replace(/\u203a/g,'</span><span>\u203a</span><span>')}</span>`; $('#back').onclick=showShip; } }
@@ -1486,7 +1585,7 @@ const esc=t=>String(t??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&g
 let selShip=null; const _emis=new Map();
 function highlight(o){ for(const [m,c] of _emis) m.emissive&&m.emissive.copy(c); _emis.clear();
   if(!o) return; o.traverse(m=>{ if(m.isMesh&&m.material&&m.material.emissive){ if(!_emis.has(m.material)) _emis.set(m.material,m.material.emissive.clone()); m.material.emissive.set('#5c3a06'); } }); }
-function selectShipPart(o,fly){ if(!o) return; selShip=o; NAV.sel=o; highlight(o); renderCard(o); if(fly) navFit(); }
+function selectShipPart(o,fly){ if(!o) return; selShip=o; NAV.sel=o; highlight(o); renderCard(o); if(fly) navFit(); try{ const [k_,r_]=regFor(o); const u_=o.userData||{}; const t_=(k_&&k_.endsWith('*')&&u_.label)?u_.label:(r_?r_.t:(u_.label||baseName(o.name))); uxQuick(o,t_,r_?r_.f:(u_.desc||'')); }catch(e){} }
 function renderCard(o){ const el=$('#sel'); if(!el) return; const [key,r]=regFor(o); const u=o.userData||{};
   const title=(key&&key.endsWith('*')&&u.label)?u.label:(r?r.t:(u.label||baseName(o.name)));
   if(!r){ el.innerHTML=`<div class="card"><p class="ct">${esc(title)}</p><span class="stpill">Draft \u00b7 card to be written</span><p>${esc(u.desc||'')}</p><div class="acts"><button data-act="frame">Frame</button></div></div>`; bindCard(o,null); return; }
@@ -1514,9 +1613,9 @@ function buildSearch(){ SIDX=[]; for(const o of ship.children){ const [key,r]=re
     if((/_(\d\d)$/.test(o.name)||/_Housing$/.test(baseName(o.name)))&&SIDX.some(x=>x.title===title)) continue;   // one entry for multi-segment parts (hose, jet)
     SIDX.push({o,title,refs,hay:(title+' '+(r?r.f+' '+r.r.map(x=>x.join(' ')).join(' '):'')+' '+(u.desc||'')+' '+baseName(o.name)).toLowerCase()}); }
   const inp=$('#psearch'); if(!inp) return; inp.oninput=()=>{ const t=inp.value.trim().toLowerCase(), ul=$('#sres'); if(!t){ ul.innerHTML=''; return; }
-    const words=t.split(/\s+/); const hits=SIDX.filter(x=>words.every(w=>x.hay.includes(w))).sort((a,b)=>(b.title.toLowerCase().includes(t))-(a.title.toLowerCase().includes(t))).slice(0,14);
+    const words=t.split(/\s+/); const _seen=new Set(); const hits=SIDX.filter(x=>words.every(w=>x.hay.includes(w))).sort((a,b)=>(b.title.toLowerCase().includes(t))-(a.title.toLowerCase().includes(t))).filter(x=>!_seen.has(x.title)&&_seen.add(x.title)).slice(0,12);
     ul.innerHTML=hits.length?hits.map((h,i)=>`<li><button data-h="${i}">${esc(h.title)}<small>${esc(h.refs||'')}</small></button></li>`).join(''):'<li class="muted" style="padding:6px 4px">No match</li>';
-    ul.querySelectorAll('[data-h]').forEach(b=>b.onclick=()=>selectShipPart(hits[+b.dataset.h].o,true)); }; }
+    ul.querySelectorAll('[data-h]').forEach(b=>b.onclick=()=>{ const h_=hits[+b.dataset.h]; selectShipPart(h_.o,true); ul.innerHTML=''; inp.value=h_.title; }); }; }
 // per-part operation animations (ship overview)
 // Rules for every animation: camera moves slowly (3 s) and only when the view changes, then holds still while the step plays;
 // each step has a caption and its rule; pause, step back / forward and speed are always available.
@@ -1951,7 +2050,7 @@ const spinAng={}; const _qs=new THREE.Quaternion();
 function loop(now){
   const dt=Math.min((now-last)/1000,.05); last=now; clock+=dt;
   if(tween){ const k=Math.min((now-tween.s)/tween.d,1),e=ease(k); camera.position.lerpVectors(tween.p0,tween.p1,e); controls.target.lerpVectors(tween.t0,tween.t1,e); if(k>=1) tween=null; }
-  navTick(dt); controls.update();
+  navTick(dt); controls.update(); if((clock*2|0)!==(uxChips._t|0)){ uxChips._t=clock*2|0; uxChips(); }
   if(mode==='mod'&&active){ const {mod,T}=active;
     if(playing&&tab==='op'){ tStep+=dt*SPEED; if(tStep>=mod.steps[cur].d){ if(cur<mod.steps.length-1){ cur++; tStep=0; flyCam(); renderTab(); updateCaption(); } else { playing=false; tStep=mod.steps[cur].d; renderTab(); } } }
     S=stepState(mod,cur,Math.min(tStep/mod.steps[cur].d,1));
@@ -2092,7 +2191,7 @@ function setCondition(key,quiet){ const c=COND.list[key]; if(!c) return; COND.cu
   const q=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,0,1),th);
   COND.Mc.compose(new THREE.Vector3(0,-(Tm-11),0).add(PC).sub(PC.clone().applyQuaternion(q)),q,new THREE.Vector3(1,1,1));
   if(!c.way&&VOY.underway){ VOY.underway=false; const w=$('#wayb'); if(w) w.setAttribute('aria-pressed',false); }
-  const b=$('#condb'); if(b) b.textContent='Loading: '+c.t; condCard(); if(!quiet) toast(c.t+' \u00b7 draught F '+c.Tf.toFixed(1)+' m, A '+c.Ta.toFixed(1)+' m'); }
+  const b=$('#condb'); if(b) b.textContent='Loading: '+c.t; if(!quiet||$('#condcard')) condCard(); if(!quiet) toast(c.t+' \u00b7 draught F '+c.Tf.toFixed(1)+' m, A '+c.Ta.toFixed(1)+' m'); }
 function condCard(){ let el=$('#condcard'); if(!el){ el=document.createElement('div'); el.id='condcard'; el.style.cssText='position:absolute;left:12px;bottom:64px;z-index:5;max-width:min(340px,calc(100% - 24px));background:color-mix(in srgb,var(--panel) 94%,transparent);border:1px solid var(--accent);border-radius:4px;padding:9px 11px;font:400 12px var(--f-body);color:var(--fg)'; stage.appendChild(el); }
   const c=COND.list[COND.cur], Tm=(c.Tf+c.Ta)/2, f=n=>n.toLocaleString('en-GB');
   el.innerHTML=`<div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b style="font:600 13px var(--f-head);letter-spacing:.04em;text-transform:uppercase">${c.t}</b><button id="condx" aria-label="Close" style="background:none;border:0;color:var(--fg);cursor:pointer;font-size:15px">\u00d7</button></div>
@@ -2450,7 +2549,7 @@ renderer.domElement.addEventListener('wheel',e=>{ if(e.deltaY<=0||!insideNow()||
 
 
 (async()=>{ try{ await initShip(); }catch(e){ $('#loading').textContent='The 3D model could not load. Reload the page to try again.'; console.error(e); return; }
-  $('#loading').hidden=true; resize(); showShip(); requestAnimationFrame(loop); })();
+  $('#loading').hidden=true; resize(); showShip(); setTimeout(()=>uxHelp(false),1200); requestAnimationFrame(loop); })();
 </script>
 
 </html>
