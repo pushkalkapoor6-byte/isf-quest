@@ -162,7 +162,7 @@ body.uwview .hs.area{display:none}
 .mpop details.gsec>summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;padding:8px 8px;font:600 11px var(--f-mono);letter-spacing:.07em;text-transform:uppercase;color:var(--muted)} .mpop details.gsec>summary::-webkit-details-marker{display:none}
 .mpop details.gsec>summary::after{content:'+';color:var(--muted)} .mpop details.gsec[open]>summary{color:var(--accent)} .mpop details.gsec[open]>summary::after{content:'\2212'}
 .mpop details.gsec .mi{padding-left:16px}
-#p_go{min-width:270px;max-height:min(70vh,560px);overflow:auto}
+#p_go,#p_anim{min-width:280px;max-height:min(70vh,560px);overflow:auto}
 .mpop .mh{font:600 10.5px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:8px 8px 4px}
 .mpop .mi{display:flex;justify-content:space-between;align-items:center;gap:12px;width:100%;text-align:left;background:none;border:0;border-radius:4px;padding:8px 10px;font:500 13px var(--f-body);color:var(--fg);cursor:pointer;text-decoration:none;box-sizing:border-box}
 .mpop .mi:hover,.mpop .mi:focus-visible{background:var(--raise);outline:none}
@@ -301,7 +301,7 @@ function flyTo(pos,target,dur=2.6){tween={p0:camera.position.clone(),t0:controls
 const loader=new GLTFLoader(); { const dl=new DRACOLoader(); dl.setDecoderPath('./'); dl.setDecoderConfig({type:'js'}); loader.setDRACOLoader(dl); }
 const b64=s=>{const bin=atob(s),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u.buffer;};
 const loaded={};
-const BUILD='57';   // bump on every release so browsers fetch the new model files (deploy_site.py does this automatically)
+const BUILD='58';   // bump on every release so browsers fetch the new model files (deploy_site.py does this automatically)
 const BUILD_DATE='2026-10-14';
 { const v=document.getElementById('ver'); if(v) v.textContent='v1.'+BUILD+' \u00b7 '+BUILD_DATE; }
 // ---- photographic sky (CC0 HDRI, Poly Haven 'kloofendal 48d partly cloudy, pure sky'): background, reflections, sun direction and haze colour
@@ -1492,13 +1492,19 @@ function showShip(){
     <button class="mi" id="lbl" aria-pressed="true">Labels: all</button>
     <button class="mi" id="cut" aria-pressed="${cutaway}">Cutaway <small>tanks, engine room</small></button>
     <button class="mi" id="uw" aria-pressed="${underwater}">Underwater</button>
-    <div class="mh">Conditions</div>
+   </div></div>
+  <div class="menu"><button class="tbtn" id="m_cond" aria-haspopup="true" aria-expanded="false">Conditions \u25be</button>
+   <div class="mpop" id="p_cond" hidden role="menu">
+    <div class="mh">Voyage</div>
     <button class="mi" id="wayb" aria-pressed="true">Under way</button>
     <button class="mi" id="nightb" aria-pressed="false">Night</button>
     <button class="mi" id="lightsb" hidden>Lights: under way</button>
+    <div class="mh">Ship and sea</div>
     <button class="mi" id="condb">Loading: Partly loaded</button>
-    <button class="mi" id="wxb">Weather</button>
+    <button class="mi" id="wxb">Weather and sea state</button>
    </div></div>
+  <div class="menu"><button class="tbtn" id="m_anim" aria-haspopup="true" aria-expanded="false">Animations \u25be</button>
+   <div class="mpop" id="p_anim" hidden role="menu">${animMenuHTML()}</div></div>
   <div class="chips" id="chips"></div>`;
   uxMenus();
   $('#cut').onclick=e=>{ setCutaway(!cutaway); if(cutaway){ underwater=false; hotspotEls.forEach(h=>h.el.hidden=false); $('#uw').setAttribute('aria-pressed',false); } e.target.setAttribute('aria-pressed',cutaway); };
@@ -1525,24 +1531,31 @@ function showShip(){
   <details class="psec"><summary>Ship overview</summary><div class="in"><p class="muted"><b>ISF Quest</b> \u2014 generic 50,000 dwt MR product tanker (port of registry Mumbai): LOA about 183 m, beam 32.2 m, depth 19.1 m, summer draught about 13.3 m. Arrangement checked against a shipyard general arrangement drawing and photographs of current 50,000 dwt MR tankers. Six pairs of cargo tanks plus two slop tanks inside a 2 m double hull with U-shaped ballast tanks; one deepwell pump per tank. Four-level accommodation and bridge aft with a free-fall lifeboat at the stern; single hose crane at the midships manifold; windlasses and forward mooring winches on a flared forecastle; spring winches on the main deck fore and aft. Click any item for its description. Use <b>Cutaway</b> for tanks and engine room, <b>Underwater</b> for the bulbous bow, rudder and propeller.</p></div></details>
   <details class="psec"><summary>Layers</summary><div class="in"><div class="layers">${Object.entries(LAYERS).map(([k,l])=>`<label><input type="checkbox" id="ly_${k}" ${l.on!==false?'checked':''}><i style="background:${l.c}"></i>${l.n}</label>`).join('')}</div></div></details>
   <details class="psec"><summary>Training modules</summary><div class="in"><ul class="mods">${[...Object.entries(MODS).map(([k,m])=>[k,m.t,true]),...Object.entries(PLANNED).map(([k,m])=>[k,m.t,false])].map(([k,t,r])=>`<li><button data-m="${k}"><span>${t}</span><span class="pill ${r?'ready':''}">${r?'Open':'Planned'}</span></button></li>`).join('')}</ul><div id="modinfo"></div></div></details>
-  <details class="psec"><summary>Ship animations</summary><div class="in">${[['Safety and life-saving',['lifeboat','rescue','liferaft','lifebuoy']],['Fire-fighting',['hose','foam','co2','efp']],['Navigation and mooring',['lights','pilot','anchor','mooring','rudder']],['Cargo',['manifold']],['Engine room',['erun','soot','scrub']]].map(([h,ks])=>`<div class="mh" style="font:600 10.5px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:8px 0 4px">${h}</div><ul class="mods">${ks.filter(k=>ANIM[k]).map(k=>`<li><button data-anim="${k}"><span>${ANIM[k].title}</span><span class="pill ready">Play</span></button></li>`).join('')}</ul>`).join('')}</div></details>
+  <details class="psec"><summary>Ship animations</summary><div class="in">${animGroups().map(([h,ks])=>`<div class="mh" style="font:600 10.5px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:8px 0 4px">${h}</div><ul class="mods">${ks.filter(k=>ANIM[k]).map(k=>`<li><button data-anim="${k}"><span>${ANIM[k].title}</span><span class="pill ready">Play</span></button></li>`).join('')}</ul>`).join('')}</div></details>
   <details class="psec"><summary>Help and controls</summary><div class="in"><p class="muted">Drag to look around, right-drag to move sideways, scroll to zoom, click any part. Keyboard: arrows rotate and tilt, + and \u2212 zoom, F frames the selection, H resets the view.</p><button class="tbtn" id="helpb">Show the welcome guide again</button></div></details>`;
   { const hb=$('#helpb'); if(hb) hb.onclick=()=>uxHelp(true); }
   if(ship) buildSearch(); if(selShip) renderCard(selShip);
   for(const k of Object.keys(LAYERS)) $('#ly_'+k).onchange=e=>{ LAYERS[k].on=e.target.checked; (layerObjs[k]||[]).forEach(o=>o.visible=e.target.checked&&(k==='hull'||k==='deck'||k==='app'||cutaway)); };
   panel.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>hotspotClick(b.dataset.m));
-  panel.querySelectorAll('[data-anim]').forEach(b=>b.onclick=()=>{ if(mode!=='ship') showShip(); const sel={lifeboat:'LSA_Lifeboat',rescue:'LSA_RescueBoat',foam:'GA_FoamMonitors',efp:'FFA_EmFirePump',soot:'EM_ExhGasEconomiser',scrub:'EM_ScrubberEGCS',erun:'EM_MainEngine',anchor:'ANC2_CableLifter_S',mooring:'MOOR_Drum_S',manifold:'CR_Jib',co2:'AC_U_CO2Room'}[b.dataset.anim]; const o=sel&&nodeOf(sel); if(o) renderCard(o); startAnim(b.dataset.anim,o||null); });
+  panel.querySelectorAll('[data-anim]').forEach(b=>b.onclick=()=>playAnim(b.dataset.anim));
 }
 
 // ---- UX v2 helpers
-function uxMenus(){ const pairs=[['m_go','p_go'],['m_view','p_view']];
+// ---- animation catalogue: one list drives the Animations menu and the sidebar; any new ANIM key shows up automatically
+const ANIM_GROUPS=[['Safety and life-saving',['lifeboat','rescue','liferaft','lifebuoy']],['Fire-fighting',['hose','foam','co2','efp']],['Navigation and mooring',['lights','pilot','anchor','mooring','rudder']],['Cargo',['manifold']],['Engine room',['erun','soot','scrub']]];
+const ANIM_SEL={lifeboat:'LSA_Lifeboat',rescue:'LSA_RescueBoat',foam:'GA_FoamMonitors',efp:'FFA_EmFirePump',soot:'EM_ExhGasEconomiser',scrub:'EM_ScrubberEGCS',erun:'EM_MainEngine',anchor:'ANC2_CableLifter_S',mooring:'MOOR_Drum_S',manifold:'CR_Jib',co2:'AC_U_CO2Room'};
+function animGroups(){ const used=new Set(ANIM_GROUPS.flatMap(g=>g[1])); const rest=Object.keys(ANIM).filter(k=>!used.has(k)); return rest.length?[...ANIM_GROUPS,['Other',rest]]:ANIM_GROUPS; }
+function animMenuHTML(){ return animGroups().map(([h,ks])=>`<details class="gsec"><summary>${h}</summary>${ks.filter(k=>ANIM[k]).map(k=>`<button class="mi" data-anim="${k}" role="menuitem">${esc(ANIM[k].title.replace(/^M\d+ \u00b7 /,''))}</button>`).join('')}</details>`).join(''); }
+function playAnim(k){ if(mode!=='ship') showShip(); if(tourI>=0) tourEnd(); const o=ANIM_SEL[k]&&nodeOf(ANIM_SEL[k]); if(o) renderCard(o); startAnim(k,o||null); }
+function uxMenus(){ const pairs=[['m_go','p_go'],['m_view','p_view'],['m_cond','p_cond'],['m_anim','p_anim']];
   const closeAll=ex=>pairs.forEach(([b,p])=>{ if(b===ex) return; const B_=$('#'+b),P_=$('#'+p); if(P_){ P_.hidden=true; B_.setAttribute('aria-expanded','false'); } });
   pairs.forEach(([b,p])=>{ const B_=$('#'+b),P_=$('#'+p); if(!B_||!P_) return;
     B_.onclick=e=>{ e.stopPropagation(); const open=P_.hidden; closeAll(b); P_.hidden=!open; B_.setAttribute('aria-expanded',String(open)); };
-    P_.addEventListener('click',e=>{ e.stopPropagation(); const t=e.target.closest('.mi'); if(t&&p==='p_go') setTimeout(()=>closeAll(),0); }); });
+    P_.addEventListener('click',e=>{ e.stopPropagation(); const t=e.target.closest('.mi'); if(t&&(p==='p_go'||p==='p_anim')) setTimeout(()=>closeAll(),0); }); });
   if(!uxMenus.bound){ uxMenus.bound=1; document.addEventListener('click',()=>closeAll()); document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeAll(); }); }
   document.querySelectorAll('#p_go [data-go]').forEach(b=>b.onclick=()=>goSpot(b.dataset.go)); document.querySelectorAll('#p_go [data-acc]').forEach(b=>b.onclick=()=>setAcc(b.dataset.acc));
   document.querySelectorAll('#p_go details.gsec').forEach(d=>d.addEventListener('toggle',()=>{ if(d.open) document.querySelectorAll('#p_go details.gsec').forEach(o=>{ if(o!==d) o.open=false; }); }));
+  document.querySelectorAll('#p_anim [data-anim]').forEach(b=>b.onclick=()=>playAnim(b.dataset.anim)); document.querySelectorAll('#p_anim details.gsec').forEach(d=>d.addEventListener('toggle',()=>{ if(d.open) document.querySelectorAll('#p_anim details.gsec').forEach(o=>{ if(o!==d) o.open=false; }); }));
   const hb=$('#homeb'); if(hb) hb.onclick=()=>{ const h=document.querySelector('[data-nav="home"]'); if(h) h.click(); }; }
 let _chipsKey='';
 function uxChips(){ const el=$('#chips'); if(!el||mode!=='ship') return; const L=[];
