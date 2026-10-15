@@ -308,7 +308,7 @@ function flyTo(pos,target,dur=2.6){tween={p0:camera.position.clone(),t0:controls
 const loader=new GLTFLoader(); { const dl=new DRACOLoader(); dl.setDecoderPath('./'); dl.setDecoderConfig({type:'js'}); loader.setDRACOLoader(dl); }
 const b64=s=>{const bin=atob(s),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u.buffer;};
 const loaded={};
-const BUILD='69';   // bump on every release so browsers fetch the new model files (deploy_site.py does this automatically)
+const BUILD='70';   // bump on every release so browsers fetch the new model files (deploy_site.py does this automatically)
 const BUILD_DATE='2026-10-15';
 { const v=document.getElementById('ver'); if(v) v.textContent='v1.'+BUILD+' \u00b7 '+BUILD_DATE; }
 // ---- photographic sky (CC0 HDRI, Poly Haven 'kloofendal 48d partly cloudy, pure sky'): background, reflections, sun direction and haze colour
@@ -1944,9 +1944,17 @@ ANIM.pilot={title:'Pilot transfer by pilot ladder',
         {c:'The pilot steps across at the top of the boat\u2019s rise and climbs with both hands on the side ropes, then comes over the rail between the stanchions and is escorted to the bridge.',d:9,rule:'SOLAS V Reg 23.3.3',cam:[[80,-26,17],[70,-16.5,15]],clip:[35,45]},
         {c:'The pilot boat sheers away. The ladder is recovered to its reel and the rail bars refitted.',d:7,rule:'',cam:[[95,-42,22],[70,-18,13]],clip:[45,55]},
         {c:'Steps: at least 400 mm between ropes, 115 mm wide, 25 mm deep, 310\u2013350 mm apart; spreaders \u2265 1.8 m on the 5th step from the bottom and then every 9 steps or less. Note: amended SOLAS V Reg 23 and new standards (MSC.532(107), MSC.548(107)) apply from 1 January 2028.',d:8,rule:'ISO 799-1; IMO A.1045(27); MSC.532(107)',cam:[[73,-19.5,21.5],[70,-15.6,19.6]],clip:[55,55]}],
- float:s=>[{n:'PT_PilotBoat',clip:'ANIM_pilot',tf:34,ride:['PT_Pilot']}],
- start(s){ keepPose(s,['PT_PilotLadder_S','PT_LadderSecuring_S','PT_RailBars_S','PT_PilotBoat','PT_Pilot']); },
- frame(s,t,i,k){ const c=s.A.steps[i].clip; clipAt(s,'ANIM_pilot',c[0]+(c[1]-c[0])*k); }};
+ float:s=>[{n:'PT_PilotBoat',clip:'ANIM_pilot',tf:34}],
+ // the pilot is a motion-captured, rigged human (m_pilot.js, ship coordinates) played on the same clock as the ship clip
+ start(s){ keepPose(s,['PT_PilotLadder_S','PT_LadderSecuring_S','PT_RailBars_S','PT_PilotBoat','PT_Pilot']); const old=nodeOf('PT_Pilot'); if(old) old.visible=false;
+   loadModel('pilot').then(root=>{ if(shipAnim!==s) return; root.traverse(o=>{ if(o.isMesh){ o.frustumCulled=false; o.castShadow=true; } });
+     const g=new THREE.Group(); g.add(root); s.fx.add(g); s.pil=g; s.pmix=new THREE.AnimationMixer(root); (root.userData.clips||[]).forEach(c=>s.pmix.clipAction(c).play()); }).catch(e=>console.warn('pilot',e)); },
+ frame(s,t,i,k){ const c=s.A.steps[i].clip; s.ct=c[0]+(c[1]-c[0])*k; clipAt(s,'ANIM_pilot',s.ct); const old=nodeOf('PT_Pilot'); if(old) old.visible=false; if(s.pmix) s.pmix.setTime(Math.max(0,s.ct)); },
+ post(s){ if(!s.pil) return; const f=(s.flo||[])[0]; const w=s.ct<36.8?1:(s.ct<37.6?1-(s.ct-36.8)/0.8:0);   // ride the boat's heave until the step across
+   s.pil.matrixAutoUpdate=false; s.pil.matrix.identity();
+   if(f&&f.D&&w>0){ SHIPFX.updateMatrixWorld(true); const Mi=SHIPFX.matrixWorld.clone().invert(); const Dl=Mi.multiply(f.D).multiply(SHIPFX.matrixWorld);
+     const p=new THREE.Vector3(),q=new THREE.Quaternion(),sc=new THREE.Vector3(); Dl.decompose(p,q,sc); s.pil.matrix.compose(p.multiplyScalar(w),new THREE.Quaternion().slerp(q,w),new THREE.Vector3(1,1,1)); }
+   s.pil.matrixWorldNeedsUpdate=true; }};
 // ---- M9: hose crane and cargo manifold connection (clip ANIM_manifold, baked in Blender)
 ANIM.manifold={harbour:true,title:'M9 \u00b7 Hose crane and manifold connection',
  steps:[{c:'Before connecting: ship/shore safety checklist agreed, scupper plugs in, drip tray empty and drain shut, SOPEP gear ready, manifold valve shut and the line drained, pressure gauge reading zero.',d:6,rule:'ISGOTT Ship/Shore Safety Checklist; MARPOL Annex I',cam:[[118,-40,40],[92,-5,20]],clip:[0,6]},
