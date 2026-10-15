@@ -57,6 +57,13 @@ main{display:grid;grid-template-columns:minmax(0,1fr) 390px;min-height:0}
 .navdock{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);width:max-content;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:2px;padding:4px;border:1px solid var(--line);border-radius:6px;background:color-mix(in srgb,var(--panel) 92%,transparent);max-width:calc(100% - 24px);z-index:3;touch-action:none}
 .navdock .sep{width:1px;align-self:stretch;background:var(--line);margin:2px 3px}
 .nb{width:36px;height:36px;display:grid;place-items:center;background:none;border:1px solid transparent;border-radius:4px;color:var(--fg);cursor:pointer;padding:0;touch-action:none;-webkit-user-select:none;user-select:none}
+.nb{position:relative}
+.nb[data-tip]::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%) translateY(4px);white-space:nowrap;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:4px;padding:5px 9px;font:500 12px var(--f-body);box-shadow:0 6px 18px rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .12s,transform .12s;z-index:30}
+.nb[data-tip]::before{content:'';position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);border:6px solid transparent;border-top-color:var(--line);opacity:0;pointer-events:none;transition:opacity .12s;z-index:30}
+.nb[data-tip]:hover::after,.nb[data-tip]:focus-visible::after{opacity:1;transform:translateX(-50%) translateY(0)} .nb[data-tip]:hover::before,.nb[data-tip]:focus-visible::before{opacity:1}
+.nb[data-nav="zin"]::after,.nb[data-nav="zout"]::after{left:0;transform:translateY(4px)} .nb[data-nav="zin"]:hover::after,.nb[data-nav="zout"]:hover::after{transform:none}
+.nb[data-nav="help"]::after,.nb[data-nav="full"]::after{left:auto;right:0;transform:translateY(4px)} .nb[data-nav="help"]:hover::after,.nb[data-nav="full"]:hover::after{transform:none}
+@media (hover:none){.nb[data-tip]::after,.nb[data-tip]::before{display:none}}
 .nb:hover{background:var(--raise)} .nb:active{background:var(--line)}
 .nb[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
 .nb svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
@@ -301,7 +308,7 @@ function flyTo(pos,target,dur=2.6){tween={p0:camera.position.clone(),t0:controls
 const loader=new GLTFLoader(); { const dl=new DRACOLoader(); dl.setDecoderPath('./'); dl.setDecoderConfig({type:'js'}); loader.setDRACOLoader(dl); }
 const b64=s=>{const bin=atob(s),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u.buffer;};
 const loaded={};
-const BUILD='64';   // bump on every release so browsers fetch the new model files (deploy_site.py does this automatically)
+const BUILD='65';   // bump on every release so browsers fetch the new model files (deploy_site.py does this automatically)
 const BUILD_DATE='2026-10-15';
 { const v=document.getElementById('ver'); if(v) v.textContent='v1.'+BUILD+' \u00b7 '+BUILD_DATE; }
 // ---- photographic sky (CC0 HDRI, Poly Haven 'kloofendal 48d partly cloudy, pure sky'): background, reflections, sun direction and haze colour
@@ -2348,10 +2355,10 @@ const IC={
  full:'<svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>',
  speed:'<span id="spdlbl" style="display:block;width:30px;text-align:center;font:600 12px/1 var(--f-body);letter-spacing:0">1x</span>',
  help:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.3a2.6 2.6 0 0 1 5 .9c0 1.8-2.5 2.2-2.5 3.8"/><path d="M12 17.3v.2"/></svg>'};
-const NAVB=[['zin','Zoom in (+)','hold'],['zout','Zoom out (\u2212)','hold'],'|',['rl','Rotate left (\u2190)','hold'],['rr','Rotate right (\u2192)','hold'],['tu','Tilt up (\u2191)','hold'],['td','Tilt down (\u2193)','hold'],'|',
- ['pan','Pan mode: one-finger / left-drag moves the view (P)','toggle'],['fit','Frame the selected item, or the whole model (F)','click'],['views','Standard views (V)','click'],['home','Reset view (R)','click'],'|',
- ['spin','Auto-rotate (A)','toggle'],['speed','Playback speed (S): 0.5\u00d7, 1\u00d7, 2\u00d7','click'],['full','Full screen','click'],['help','Controls and shortcuts (?)','click']];
-function buildNav(){ const d=$('#navdock'); d.innerHTML=NAVB.map(b=>b==='|'?'<span class="sep"></span>':`<button class="nb" data-nav="${b[0]}" title="${b[1]}" aria-label="${b[1]}" ${b[2]==='toggle'?'aria-pressed="false"':''}>${IC[b[0]]}</button>`).join('');
+const NAVB=[['zin','Zoom in  \u00b7  hold, or press +','hold'],['zout','Zoom out  \u00b7  hold, or press \u2212','hold'],'|',['rl','Rotate left  \u00b7  \u2190','hold'],['rr','Rotate right  \u00b7  \u2192','hold'],['tu','Tilt up  \u00b7  \u2191','hold'],['td','Tilt down  \u00b7  \u2193','hold'],'|',
+ ['pan','Pan mode: drag moves the view sideways  \u00b7  P','toggle'],['fit','Frame the selected part (or whole ship)  \u00b7  F','click'],['views','Standard views: bow, stern, side, top  \u00b7  V','click'],['home','Reset view to the whole ship  \u00b7  R','click'],'|',
+ ['spin','Auto-rotate on / off  \u00b7  A','toggle'],['speed','Animation speed 0.5\u00d7 / 1\u00d7 / 2\u00d7  \u00b7  S','click'],['full','Full screen on / off','click'],['help','Help: controls and shortcuts  \u00b7  ?','click']];
+function buildNav(){ const d=$('#navdock'); d.innerHTML=NAVB.map(b=>b==='|'?'<span class="sep"></span>':`<button class="nb" data-nav="${b[0]}" data-tip="${b[1]}" aria-label="${b[1]}" ${b[2]==='toggle'?'aria-pressed="false"':''}>${IC[b[0]]}</button>`).join('');
   d.querySelectorAll('[data-nav]').forEach(el=>{ const k=el.dataset.nav, kind=NAVB.find(b=>b[0]===k)[2];
     if(kind==='hold'){ const start=e=>{ e.preventDefault(); navStep(k,0.12); NAV.hold={k,t:performance.now()}; el.setPointerCapture&&e.pointerId!==undefined&&el.setPointerCapture(e.pointerId); };
       const stop=()=>{ NAV.hold=null; };
