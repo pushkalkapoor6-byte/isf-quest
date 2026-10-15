@@ -308,7 +308,7 @@ function flyTo(pos,target,dur=2.6){tween={p0:camera.position.clone(),t0:controls
 const loader=new GLTFLoader(); { const dl=new DRACOLoader(); dl.setDecoderPath('./'); dl.setDecoderConfig({type:'js'}); loader.setDRACOLoader(dl); }
 const b64=s=>{const bin=atob(s),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u.buffer;};
 const loaded={};
-const BUILD='68';   // bump on every release so browsers fetch the new model files (deploy_site.py does this automatically)
+const BUILD='69';   // bump on every release so browsers fetch the new model files (deploy_site.py does this automatically)
 const BUILD_DATE='2026-10-15';
 { const v=document.getElementById('ver'); if(v) v.textContent='v1.'+BUILD+' \u00b7 '+BUILD_DATE; }
 // ---- photographic sky (CC0 HDRI, Poly Haven 'kloofendal 48d partly cloudy, pure sky'): background, reflections, sun direction and haze colour
@@ -528,7 +528,8 @@ const MODS={
  hs_crane:{id:'m9',t:'Hose crane & manifold',ship:'manifold'},
  hs_pumproom:{id:'pr',t:'Cargo pump room (conventional tanker)'},
  hs_er:{id:'me',t:'Main engine: two-stroke cycle & turbocharger'},
- hs_esr:{id:'esr',t:'Enclosed space entry and rescue'}
+ hs_esr:{id:'esr',t:'Enclosed space entry and rescue'},
+ hs_egr:{id:'egr',t:'Emergency generator: blackout test'}
 };
 let tankShared=null;
 async function getTank(){
@@ -1342,7 +1343,45 @@ const ESRM={
  refs:'IMO Resolution A.1050(27) (Revised Recommendations for entering enclosed spaces aboard ships); SOLAS XI-1 Reg 7 (enclosed-space entry and rescue drills every two months); MSC.1/Circ.1477; ISGOTT 6 Ch.10. Check for amendments after June 2026.',
  render(T,s,t,dt){ if(T.act){ T.mixer.setTime(Math.max(0,Math.min(T.clip.duration-0.01,s.ct))); } }
 };
-const M_ALL={esr:ESRM,dwp:DWP,load:LOAD,ig:IGM,tc:TCM,bal:BALM,anc:ANCM,moo:MOOM,pr:PRM,me:MEM};
+// ================= Emergency generator room (rebuilt in Blender: s_egr.py; one 64 s timeline 'EGR')
+let egrShared=null;
+const EGB=(x,y,z)=>B(8.0+x,4.5+y,19.1+z);   // room frame: aft-inboard corner of the room on the main deck
+const EGT={black:10,crank:10.8,fire:14.5,acb:19,main:40,acbOpen:42,stop:56};
+async function getEGR(){ if(egrShared) return egrShared;
+  const root=await loadModel('egr'); const grp=new THREE.Group(); grp.add(root); scene.add(grp); grp.visible=false;
+  root.traverse(o=>{ if(o.isMesh){ o.frustumCulled=false; o.castShadow=true; o.receiveShadow=true; } });
+  const prep=prepModel(root); const mixer=new THREE.AnimationMixer(root); const clips=root.userData.clips||[]; const clip={duration:Math.max(1,...clips.map(c=>c.duration))};
+  const act=clips.length?clips.map(c=>{ const a=mixer.clipAction(c); a.play(); return a; }):null;
+  const lamp=new THREE.PointLight(0xfff4e6,9,9,1.6); lamp.position.copy(EGB(2.0,1.25,2.2)); grp.add(lamp); const lamp2=new THREE.PointLight(0xfff4e6,9,9,1.6); lamp2.position.copy(EGB(4.6,1.25,2.2)); grp.add(lamp2);
+  egrShared={grp,root,prep,mixer,act,clip,lamp,lamp2,F:{},P:{},R:{},E:{},state:{}}; return egrShared; }
+const EGRM={
+ id:'egr', title:'Emergency generator: blackout test', crumb:'Training module › Emergency generator room (main deck, aft, port side)',
+ intro:'The emergency generator is the ship’s independent source of power if the main switchboard fails. It must start by itself and take the emergency loads (steering gear, emergency fire pump, emergency lighting, navigation lights, radio, fire detection and alarms) within 45 seconds. This module shows the routine blackout test in the emergency generator room of ISF Quest, step by step, with the switchboard instruments live.',
+ xray:[], cams:{aft:[EGB(0.15,0.25,2.1),EGB(4.5,1.6,0.8)],swbd:[EGB(3.6,0.7,1.6),EGB(5.9,1.25,1.1)],engine:[EGB(4.3,0.55,1.5),EGB(1.5,1.6,0.9)],
+   radiator:[EGB(1.8,0.45,1.9),EGB(0.4,1.6,0.9)],tank:[EGB(2.4,0.6,1.7),EGB(4.6,2.3,1.7)],hyd:[EGB(2.7,0.35,1.6),EGB(3.9,0.6,0.6)]},
+ init:{ct:0},
+ steps:[
+ {t:'Prepare for the test',cam:'tank',d:8,lin:{ct:[0,8]},b:['Agree the time with the bridge and the engine control room: steering, navigation lights and radio will be on the emergency supply for a short time.','Check before starting: day-tank level and its quick-closing valve open; coolant level; lube-oil level; starting battery voltage and charger; louvres and the air-inlet fire damper open; selector on AUTO.']},
+ {t:'Simulate a blackout',cam:'swbd',d:4,lin:{ct:[8,12]},b:['The feed from the main switchboard to the emergency switchboard is opened (test switch or breaker). The emergency switchboard is now dead.','Emergency lighting comes on from its battery (the transitional source) at once, and stays on until the generator takes the load.']},
+ {t:'Automatic start',cam:'engine',d:5,lin:{ct:[10,15]},b:['The control system senses the loss of voltage and engages the starter: the engine cranks and fires.','Two independent means of starting are required: here, the battery-powered electric starter and a hydraulic starter charged by hand.']},
+ {t:'Run up to speed',cam:'swbd',d:4,lin:{ct:[15,19]},b:['The engine runs up to rated speed (1,800 rpm). The generator voltage builds to 440 V at 60 Hz; the ENGINE RUNNING lamp lights.']},
+ {t:'On load within 45 seconds',cam:'swbd',d:6,lin:{ct:[19,25]},b:['The generator breaker (ACB) closes automatically on the dead emergency switchboard. The emergency loads are supplied: steering gear, emergency fire pump, emergency lighting, navigation lights, GMDSS, fire detection and general alarm.','Here it is on load 9 seconds after the blackout; the limit is 45 seconds.']},
+ {t:'Running checks',cam:'radiator',d:12,lin:{ct:[25,40]},b:['Check voltage, frequency, load and the engine instruments; look for fuel, oil, coolant or exhaust leaks; feel the radiator air flow out through the louvre.','Record the start time and readings in the engine log.']},
+ {t:'Main supply restored',cam:'swbd',d:5,lin:{ct:[40,45]},b:['The feed from the main switchboard is restored. The generator breaker opens and the emergency switchboard transfers back to the main supply.']},
+ {t:'Cool down and stop',cam:'engine',d:10,lin:{ct:[45,62]},b:['The engine runs off load to cool (several minutes in practice, shortened here), then stops.','Return the selector to AUTO and the test switch to normal; the generator must be ready to start again at once.']},
+ {t:'Second means of starting',cam:'hyd',d:6,lin:{ct:[62,64]},b:['Periodically, the engine is also started with the second means (the hydraulic starter), and the starting batteries and charger are checked.','The emergency generator room is kept clear: it is not a store.']}
+ ],
+ gauges(s){ const t=s.ct, run=t>=EGT.fire&&t<EGT.stop+3, onl=t>=EGT.acb&&t<EGT.acbOpen, k=x=>Math.max(0,Math.min(1,x));
+   const v=t<EGT.fire?0:(t<EGT.stop?440*k((t-EGT.fire)/3):440*(1-k((t-EGT.stop)/3))), hz=t<EGT.fire?0:(t<EGT.stop?60*k((t-EGT.fire)/3):60*(1-k((t-EGT.stop)/3)));
+   const kw=onl?120*k((t-EGT.acb)/3):0, main=t<EGT.black||t>=EGT.main, since=t>=EGT.black&&t<EGT.acb?(t-EGT.black).toFixed(0)+' s':(t>=EGT.acb&&t<EGT.main?'on load at 9 s':'—');
+   return [['Main supply',main?'<span class="st-open">AVAILABLE</span>':'<span class="st-closed">LOST</span>'],['Engine',run?'<span class="st-open">RUNNING</span>':'stopped'],['Voltage',v.toFixed(0)+' V'],['Frequency',hz.toFixed(1)+' Hz'],['Generator breaker',onl?'<span class="st-open">CLOSED</span>':'open'],['Load',kw.toFixed(0)+' kW'],['Time since blackout',since]]; },
+ legend:[['#2ecc71','Engine running lamp'],['#e74c3c','Generator breaker closed lamp'],['#f39c12','Main supply available lamp']],
+ sme:['Generator set shown: 6-cylinder radiator-cooled diesel, about 250 kW, 440 V, 60 Hz, 1,800 rpm. Confirm against the ship’s actual unit and its maker’s test procedure.','Load shown (120 kW) is indicative of steering gear, emergency fire pump and lighting; confirm with the ship’s emergency load analysis.','Room location: main deck level at the aft end of the accommodation, door to the open deck; check against the ship’s fire control plan.'],
+ refs:'SOLAS II-1 Reg 42 (emergency source of power: services and duration), Reg 43 (location, on load within 45 s), Reg 44 (starting arrangements: two independent means); MSC.1/Circ.1464; company PMS for test intervals. Check for amendments after June 2026.',
+ enter(T){ EGRM._fov=camera.fov; camera.fov=72; camera.updateProjectionMatrix(); }, leave(T){ if(EGRM._fov){ camera.fov=EGRM._fov; camera.updateProjectionMatrix(); } },
+ render(T,s,t,dt){ if(T.act){ T.mixer.setTime(Math.max(0,Math.min(T.clip.duration-0.01,s.ct))); } const lit=s.ct<EGT.black||s.ct>=EGT.acb; T.lamp.intensity=lit?4:0.5; T.lamp2.intensity=lit?4:0.15; }
+};
+const M_ALL={egr:EGRM,esr:ESRM,dwp:DWP,load:LOAD,ig:IGM,tc:TCM,bal:BALM,anc:ANCM,moo:MOOM,pr:PRM,me:MEM};
 let cur=0,tStep=0,playing=false,tab='op',explode=0,selPart=null,xrayOn=true,section=false,clock=0;
 let S={};
 function stepState(mod,i,k){ // state at step i, progress k (0..1)
@@ -1360,6 +1399,7 @@ const PLACE={
  tc:{off:[100.8,2.03,-7.09],hideShip:['COT_3P','PumpTop_3P','GA_TankTop_3P','GA_IGBranch_3P'],cut:true},
  ig:{off:[14.0,17.45,-3.6],hideShip:['GA_IGMain'],hideMod:['Accommodation_Front','Cargo_Tanks_Ctx'],cut:false},
  esr:{off:[0,0,0],hideShip:['WBT_3S','COT_3S'],cut:false},
+ egr:{off:[0,0,0],hideShip:['EMS_EmergencyGenRoom','DR_EmGenRoom','EM_Incinerator'],cut:false},
  bal:{off:[99.2,0,0],hideShip:['WBT_3P','WBT_3S'],hideMod:["ST_BottomShell", "ST_SideShell", "ST_Floor", "ST_SeaChest", "ST_SeaRiser", "ST_SeaValve_Body", "ST_SeaValve_Disc", "ST_Strainer", "ST_SuctHeader", "ST_Pump1_Casing", "ST_Pump1_Motor", "ST_Pump1_Impeller", "ST_Pump2_Casing", "ST_Pump2_Motor", "ST_Pump2_Impeller", "ST_DischHeader", "ST_PumpDisch_Body", "ST_PumpDisch_Disc", "ST_Filter", "ST_Filter_Pipes", "ST_UV", "ST_UV_Out", "ST_Overboard", "ST_OverboardValve_Body", "ST_OverboardValve_Disc", "ST_MainValve_Body", "ST_MainValve_Disc", "ST_Bypass", "ST_BypassValve_Body", "ST_BypassValve_Disc", "ST_DebSuction", "ST_DebValve_Body", "ST_DebValve_Disc", "ST_Eductor", "ST_Eductor_Pipes", "ST_EductorDrive_Body", "ST_EductorDrive_Disc", "ST_EductorOB_Body", "ST_EductorOB_Disc"],cut:true,showER:true,
   cams:{station:[B(36,-20,9),B(29,-8.4,5)],uv:[B(30,-15,8),B(24,-7,5.5)],ed:[B(36,-20,9),B(29,-8.4,5)],over:[B(86,-46,30),B(108,0,8)]}}
 };
@@ -1378,11 +1418,11 @@ function modOff(){ return placed?placed.off:OFF0; }
 async function openModule(id){ stopAnim(); highlight(null);
   const mod=M_ALL[id]; if(!mod) return;
   $('#loading').hidden=false; $('#loading').textContent='Loading 3D model\u2026';
-  let T; try{ T = id==='ig'? await getIG() : id==='bal'? await getBal() : id==='anc'? await getAnc() : id==='moo'? await getMoo() : id==='pr'? await getPR() : id==='me'? await getME() : id==='esr'? await getESR() : await getTank(); }catch(e){ $('#loading').textContent='The 3D model could not load. Reload the page to try again.'; return; }
+  let T; try{ T = id==='ig'? await getIG() : id==='bal'? await getBal() : id==='anc'? await getAnc() : id==='moo'? await getMoo() : id==='pr'? await getPR() : id==='me'? await getME() : id==='esr'? await getESR() : id==='egr'? await getEGR() : await getTank(); }catch(e){ $('#loading').textContent='The 3D model could not load. Reload the page to try again.'; return; }
   $('#loading').hidden=true;
   if(active&&active.mod.leave) active.mod.leave(active.T);
   mode='mod'; active={mod,T}; resetFx(T); if(mod.enter) mod.enter(T); else if(T.covers) T.covers.visible=true;
-  for(const g of [tankShared,igShared,balShared,ancShared,mooShared,prShared,meShared,esrShared]) if(g) g.grp.visible=false; T.grp.visible=true;
+  for(const g of [tankShared,igShared,balShared,ancShared,mooShared,prShared,meShared,esrShared,egrShared]) if(g) g.grp.visible=false; T.grp.visible=true;
   const pl=placeModule(id,T); shipGroup.visible=!!pl;   // modules with a placement open in place inside the ship
   hotspotEls.forEach(h=>h.el.hidden=true);
   camera.near=0.02; camera.far=600; camera.updateProjectionMatrix(); controls.minDistance=.5; controls.maxDistance=120;
@@ -1397,7 +1437,7 @@ async function openModule(id){ stopAnim(); highlight(null);
 function flyCam(instant){ const {mod}=active; const cn=mod.steps[cur].cam, pc=placed&&PLACE[placed.id]&&PLACE[placed.id].cams&&PLACE[placed.id].cams[cn]; const c0=pc||mod.cams[cn]; const o=pc?new THREE.Vector3():modOff(); const c=[c0[0].clone().add(o),c0[1].clone().add(o)]; if(placed){ c[0]=shipW(c[0]); c[1]=shipW(c[1]); } if(placed&&typeof clearView==='function') clearView((mod.noClr&&mod.noClr.includes(cn))?null:c[0],c[1]); if(instant){ camera.position.copy(c[0]); controls.target.copy(c[1]); } else { const p=active._lastCam; if(!p||p!==mod.steps[cur].cam) flyTo(c[0],c[1],3.0); active._lastCam=mod.steps[cur].cam; } }
 function renderTools(){
   const {mod,T}=active;
-  tools.innerHTML=`<button class="tbtn" id="xr" aria-pressed="${xrayOn}">See-through pipes</button><button class="tbtn" id="sect" aria-pressed="${section}">Section cut</button>${mod.id!=='ig'&&mod.id!=='bal'&&mod.id!=='anc'&&mod.id!=='moo'&&mod.id!=='pr'&&mod.id!=='me'&&mod.id!=='esr'?'<button class="tbtn" id="ctx" aria-pressed="true">Tank structure</button>':''}`;
+  tools.innerHTML=`<button class="tbtn" id="xr" aria-pressed="${xrayOn}">See-through pipes</button><button class="tbtn" id="sect" aria-pressed="${section}">Section cut</button>${mod.id!=='ig'&&mod.id!=='bal'&&mod.id!=='anc'&&mod.id!=='moo'&&mod.id!=='pr'&&mod.id!=='me'&&mod.id!=='esr'&&mod.id!=='egr'?'<button class="tbtn" id="ctx" aria-pressed="true">Tank structure</button>':''}`;
   $('#xr').onclick=e=>{ xrayOn=!xrayOn; e.target.setAttribute('aria-pressed',xrayOn); setXray(mod.xray,xrayOn,T.root); };
   $('#sect').onclick=e=>{ section=!section; e.target.setAttribute('aria-pressed',section); clipPlane.constant=section?modOff().z:1e4; };
   const c=$('#ctx'); if(c) c.onclick=e=>{ const on=e.target.getAttribute('aria-pressed')!=='true'; e.target.setAttribute('aria-pressed',on); T.prep.parts.filter(p=>p.g==='tank').forEach(p=>p.o.visible=on); };
@@ -1537,7 +1577,7 @@ function setUnderwater(on){ underwater=on; hotspotEls.forEach(h=>h.el.hidden=on)
   if(on) flyTo(new THREE.Vector3(-34,-6,-30),new THREE.Vector3(6,4,0)); }
 function showShip(){ if(typeof clearView==='function') clearView(null);
   if(active&&active.mod.leave) active.mod.leave(active.T);
-  unplace(); mode='ship'; active=null; playing=false; shipGroup.visible=true; for(const g of [tankShared,igShared,balShared,ancShared,mooShared,prShared,meShared,esrShared]) if(g) g.grp.visible=false;
+  unplace(); mode='ship'; active=null; playing=false; shipGroup.visible=true; for(const g of [tankShared,igShared,balShared,ancShared,mooShared,prShared,meShared,esrShared,egrShared]) if(g) g.grp.visible=false;
   hotspotEls.forEach(h=>h.el.hidden=false); $('#caption').hidden=true;
   camera.near=.5; camera.far=3000; camera.updateProjectionMatrix(); controls.minDistance=20; controls.maxDistance=700;
   if(!camera.userData.init){ camera.position.set(60,110,260); controls.target.set(98,6,0); camera.userData.init=1; }
@@ -1615,7 +1655,7 @@ const ANIM_GROUPS=[  // 'm:<hotspot>' = step-by-step system module, otherwise a 
  ['Mooring and anchoring',['anchor','mooring']],
  ['Navigation and bridge',['lights','rudder']],
  ['Ship access and pilot',['pilot','combo','accladder']],
- ['Engine room',['m:hs_er','mestart','erun','egen','soot','scrub']],
+ ['Engine room',['m:hs_er','mestart','erun','m:hs_egr','soot','scrub']],
  ['Fire-fighting',['hose','foam','co2','efp','mist']],
  ['Life-saving and drills',['muster','lifeboat','rescue','liferaft','lifebuoy']],
  ['Emergency and special operations',['m:hs_esr','encl','eta','heli']],
@@ -2523,7 +2563,7 @@ function tourGo(i){ const st=TOUR[i]; if(!st) return tourEnd(); tourI=i; tourT=p
   $('#tprev').onclick=()=>tourGo(Math.max(0,tourI-1)); $('#tnext').onclick=()=>tourGo(tourI+1); $('#texit').onclick=tourEnd;
   $('#tpause').onclick=e=>{ tourPause=!tourPause; e.target.textContent=tourPause?'Play':'Pause'; tourT=performance.now()-(tourPause?0:0); }; }
 const GOX={'Ballast water treatment system':{c:[25.8,-10.0,11.4],g:[24.6,-6.4,9.9],cut:1,near:1,sel:'EM_BWTS'},'Oily water separator':{c:[24.6,4.2,6.2],g:[24.6,7.2,5.0],cut:1,near:1,sel:'EM_OWS'},'Sewage treatment plant':{c:[27.0,5.4,6.4],g:[27.2,8.4,5.0],cut:1,near:1,sel:'EM_SewagePlant'},'Fresh-water generator':{c:[23.8,2.2,6.4],g:[21.3,4.6,5.2],cut:1,near:1,sel:'EM_FreshWaterGen'},'Exhaust gas scrubber':{c:[17.5,-5.5,36.5],g:[10.5,0.9,35.0],cut:1,near:1,sel:'EM_ScrubberEGCS'},'Cargo control room':{c:[26.4,-6.7,20.9],g:[30.2,-6.7,20.3],near:1,sel:'AC_U_CCR'},'Accommodation ladder':{c:[46,-34,22],g:[44,-16.5,18],sel:'SS_Accommodation'}};
-function goSpot(title){ const st=TOUR.find(x=>x.t===title)||(GOX[title]&&Object.assign({t:title},GOX[title])); if(!st) return; if(tourI>=0){ tourI=-1; $('#tour').hidden=true; } if(accDeck) setAcc(null);
+function goSpot(title){ if(title==='Emergency generator room'){ hotspotClick('hs_egr'); return; } const st=TOUR.find(x=>x.t===title)||(GOX[title]&&Object.assign({t:title},GOX[title])); if(!st) return; if(tourI>=0){ tourI=-1; $('#tour').hidden=true; } if(accDeck) setAcc(null);
   const wantCut=!!st.cut, wantUw=!!st.uw; if(cutaway!==wantCut){ setCutaway(wantCut); const b=$('#cut'); if(b) b.setAttribute('aria-pressed',wantCut); } if(underwater!==wantUw){ setUnderwater(wantUw); const b=$('#uw'); if(b) b.setAttribute('aria-pressed',wantUw); }
   camera.near=st.near?0.05:0.1; camera.updateProjectionMatrix(); controls.minDistance=0.2; if(st.cut) erFocus(); flyTo(B(...st.c),B(...st.g),2.8); clearView(st.near?B(...st.c):null,B(...st.g)); if(st.sel){ const o=nodeOf(st.sel); if(o) renderCard(o); } toast(st.t); }
 function tourDur(st){ return 3200+Math.max(7000,st.d.length*62); }
