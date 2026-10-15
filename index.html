@@ -308,7 +308,7 @@ function flyTo(pos,target,dur=2.6){tween={p0:camera.position.clone(),t0:controls
 const loader=new GLTFLoader(); { const dl=new DRACOLoader(); dl.setDecoderPath('./'); dl.setDecoderConfig({type:'js'}); loader.setDRACOLoader(dl); }
 const b64=s=>{const bin=atob(s),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u.buffer;};
 const loaded={};
-const BUILD='67';   // bump on every release so browsers fetch the new model files (deploy_site.py does this automatically)
+const BUILD='68';   // bump on every release so browsers fetch the new model files (deploy_site.py does this automatically)
 const BUILD_DATE='2026-10-15';
 { const v=document.getElementById('ver'); if(v) v.textContent='v1.'+BUILD+' \u00b7 '+BUILD_DATE; }
 // ---- photographic sky (CC0 HDRI, Poly Haven 'kloofendal 48d partly cloudy, pure sky'): background, reflections, sun direction and haze colour
@@ -1371,8 +1371,8 @@ function placeModule(id,T){ unplace(); const P=PLACE[id]; if(!P){ T.grp.position
   const wasCut=cutaway; if(cutaway) setCutaway(false);
   const ghost=[]; if(P.cut){ (layerObjs.hull||[]).forEach(o=>{ ghost.push([o,o.material.transparent,o.material.opacity,o.material.depthWrite]); o.material.transparent=true; o.material.opacity=.14; o.material.depthWrite=false; o.material.needsUpdate=true; }); if(sea&&sea.visible){ sea.visible=false; hidden.push(sea); } }
   const shown=[]; if(P.showER) (layerObjs.er||[]).forEach(o=>{ if(!o.visible&&!/^(ER_|TK_)/.test(o.name)){ o.visible=true; shown.push(o); } });
-  placed={id,hidden,wasCut,ghost,shown,off:new THREE.Vector3(...P.off)}; return placed; }
-function unplace(){ if(!placed) return; placed.hidden.forEach(o=>o.visible=true); (placed.shown||[]).forEach(o=>o.visible=false); placed.ghost.forEach(([o,t,op,dw])=>{ o.material.transparent=t; o.material.opacity=op; o.material.depthWrite=dw; o.material.needsUpdate=true; }); if(cutaway!==placed.wasCut) setCutaway(placed.wasCut); placed=null; }
+  placed={id,hidden,wasCut,ghost,shown,off:new THREE.Vector3(...P.off),grp:T.grp}; return placed; }
+function unplace(){ if(!placed) return; if(placed.grp){ placed.grp.matrixAutoUpdate=true; placed.grp.position.set(0,0,0); placed.grp.quaternion.identity(); } placed.hidden.forEach(o=>o.visible=true); (placed.shown||[]).forEach(o=>o.visible=false); placed.ghost.forEach(([o,t,op,dw])=>{ o.material.transparent=t; o.material.opacity=op; o.material.depthWrite=dw; o.material.needsUpdate=true; }); if(cutaway!==placed.wasCut) setCutaway(placed.wasCut); placed=null; }
 const OFF0=new THREE.Vector3();
 function modOff(){ return placed?placed.off:OFF0; }
 async function openModule(id){ stopAnim(); highlight(null);
@@ -1394,7 +1394,7 @@ async function openModule(id){ stopAnim(); highlight(null);
   renderTools(); crumbs(); renderPanel(); updateCaption();
   $('#snote').textContent='Drag to rotate \u00b7 right-drag to pan \u00b7 scroll or pinch to zoom \u00b7 double-click to centre \u00b7 click a part for details';
 }
-function flyCam(instant){ const {mod}=active; const cn=mod.steps[cur].cam, pc=placed&&PLACE[placed.id]&&PLACE[placed.id].cams&&PLACE[placed.id].cams[cn]; const c0=pc||mod.cams[cn]; const o=pc?new THREE.Vector3():modOff(); const c=[c0[0].clone().add(o),c0[1].clone().add(o)]; if(placed&&typeof clearView==='function') clearView((mod.noClr&&mod.noClr.includes(cn))?null:c[0],c[1]); if(instant){ camera.position.copy(c[0]); controls.target.copy(c[1]); } else { const p=active._lastCam; if(!p||p!==mod.steps[cur].cam) flyTo(c[0],c[1],3.0); active._lastCam=mod.steps[cur].cam; } }
+function flyCam(instant){ const {mod}=active; const cn=mod.steps[cur].cam, pc=placed&&PLACE[placed.id]&&PLACE[placed.id].cams&&PLACE[placed.id].cams[cn]; const c0=pc||mod.cams[cn]; const o=pc?new THREE.Vector3():modOff(); const c=[c0[0].clone().add(o),c0[1].clone().add(o)]; if(placed){ c[0]=shipW(c[0]); c[1]=shipW(c[1]); } if(placed&&typeof clearView==='function') clearView((mod.noClr&&mod.noClr.includes(cn))?null:c[0],c[1]); if(instant){ camera.position.copy(c[0]); controls.target.copy(c[1]); } else { const p=active._lastCam; if(!p||p!==mod.steps[cur].cam) flyTo(c[0],c[1],3.0); active._lastCam=mod.steps[cur].cam; } }
 function renderTools(){
   const {mod,T}=active;
   tools.innerHTML=`<button class="tbtn" id="xr" aria-pressed="${xrayOn}">See-through pipes</button><button class="tbtn" id="sect" aria-pressed="${section}">Section cut</button>${mod.id!=='ig'&&mod.id!=='bal'&&mod.id!=='anc'&&mod.id!=='moo'&&mod.id!=='pr'&&mod.id!=='me'&&mod.id!=='esr'?'<button class="tbtn" id="ctx" aria-pressed="true">Tank structure</button>':''}`;
@@ -1458,6 +1458,15 @@ function selectPart(p,fly){ if(!p) return; selPart=p;
 
 // ================= SHIP overview
 const shipGroup=new THREE.Group(); scene.add(shipGroup);
+// ---- one environment, one ship frame: everything built in ship-model coordinates (B()) rides in SHIPFX, which copies the ship's
+// live transform (wave motion x loading condition) every frame; anything in the water uses the live wave surface (seaY / floatY).
+const SHIPFX=new THREE.Group(); SHIPFX.name='SHIPFX'; SHIPFX.matrixAutoUpdate=false; shipGroup.add(SHIPFX);
+const _shW=new THREE.Matrix4(), _shWi=new THREE.Matrix4();
+function shipMat(){ if(ship){ ship.updateMatrix(); shipGroup.updateMatrixWorld(); _shW.multiplyMatrices(shipGroup.matrixWorld,ship.matrix); } else _shW.identity(); return _shW; }
+function shipW(v){ return v.clone().applyMatrix4(shipMat()); }                               // ship-model point -> world
+function shipL(v){ _shWi.copy(shipMat()).invert(); return v.clone().applyMatrix4(_shWi); }   // world -> ship-model point
+function seaY(x,z){ return 11.0+(typeof wxH==='function'&&WX.u?wxH(x,z):0); }                  // live sea surface (world)
+function floatY(p){ const w=shipW(p); return shipL(new THREE.Vector3(w.x,seaY(w.x,w.z),w.z)).y; }  // sea surface under a ship-model point, in ship-model y
 let ship, layerObjs={}, sea;
 const APPRE=/^APP_/;
 const SHIPMAT=[[/^COT_/,'#d9a03a',.55,'cargo'],[/^SLOP_/,'#a8642e',.6,'cargo'],[/^(WBT_|FWD_WBT_|FPT)/,'#2a9aa3',.35,'ballast'],[/^COFF_/,'#e7cd3a',.7,'coff'],[/^ER_/,'#8b95a6',.05,'er'],[/^ChainLocker/,'#8e959c',.55,'coff'],[/^TK_/,null,.5,'er']];
@@ -1729,25 +1738,69 @@ let shipMixer=null;
 function clipAt(s,name,time){ if(!shipMixer) return false; if(!s.act){ const c=(ship.userData.clips||[]).find(c=>c.name===name); if(!c) return false; if(c._t0===undefined) c._t0=Math.min(...c.tracks.map(t=>t.times[0])); s.act=shipMixer.clipAction(c); s.act.play(); s.act.paused=true; s.t0=c._t0; } s.act.time=Math.min(s.t0+time,s.act.getClip().duration); shipMixer.update(0); return true; }
 function restorePose(s){ if(s.act){ s.act.stop(); s.act=null; }  for(const r of s.saved||[]){ r.o.position.copy(r.p); r.o.quaternion.copy(r.q); if(r.sc) r.o.scale.copy(r.sc); r.o.visible=r.v; } }
 function stepAt(A,t){ let acc=0; for(let i=0;i<A.steps.length;i++){ if(t<acc+A.steps[i].d||i===A.steps.length-1) return [i,acc]; acc+=A.steps[i].d; } return [0,0]; }
-function startAnim(key,o){ const A=ANIM[key]; if(!A) return; stopAnim();
-  shipAnim={A,o,t:0,paused:false,fx:new THREE.Group(),_ci:-1}; scene.add(shipAnim.fx); if(A.start) A.start(shipAnim); hotspotEls.forEach(h=>h.el.hidden=true); $('#caption').hidden=false; animCaption(true); }
-function stopAnim(){ if(!shipAnim) return; clearView(null); const s=shipAnim; if(s.A.end) s.A.end(s); restorePose(s); scene.remove(s.fx); shipAnim=null; if(!underwater) hotspotEls.forEach(h=>h.el.hidden=false); $('#caption').hidden=true; }
+function startAnim(key,o){ const A=ANIM[key]; if(!A) return; stopAnim(); shipMat();
+  shipAnim={A,key,o,t:0,paused:false,fx:new THREE.Group(),wfx:new THREE.Group(),_ci:-1}; SHIPFX.add(shipAnim.fx); scene.add(shipAnim.wfx);
+  if(A.inside||A.harbour) envInside(true,!!A.harbour); if(A.start) A.start(shipAnim); if(A.float) floatInit(shipAnim); hotspotEls.forEach(h=>h.el.hidden=true); $('#caption').hidden=false; animCaption(true); }
+function stopAnim(){ if(!shipAnim) return; clearView(null); const s=shipAnim; if(s.A.end) s.A.end(s); restorePose(s); s.fx.removeFromParent(); scene.remove(s.wfx); if(s.A.inside||s.A.harbour) envInside(false); shipAnim=null; if(!underwater) hotspotEls.forEach(h=>h.el.hidden=false); $('#caption').hidden=true; }
 function animJump(d){ const s=shipAnim; if(!s) return; const [i]=stepAt(s.A,s.t); const j=Math.max(0,Math.min(s.A.steps.length-1,i+d)); let acc=0; for(let k=0;k<j;k++) acc+=s.A.steps[k].d; s.t=acc+0.001; s._ci=-1; animCaption(true); }
 function animCaption(force){ const s=shipAnim; if(!s) return; const [idx]=stepAt(s.A,s.t); const cur=s.A.steps[idx];
   if(s._ci!==idx||force){ s._ci=idx;
-    if(cur.cam){ const k=JSON.stringify(cur.cam); if(s._cam!==k){ s._cam=k; const mir=v=>s.sg===1?[v[0],-v[1],v[2]]:v; flyTo(B(...mir(cur.cam[0])),B(...mir(cur.cam[1])),3.0); clearView((cur.cut||cur.clr)?B(...mir(cur.cam[0])):null,B(...mir(cur.cam[1]))); } }
-    $('#caption').innerHTML=`<b>${esc(s.A.title)} \u00b7 step ${idx+1} of ${s.A.steps.length}</b>${esc(cur.c)}${cur.rule?`<div class="muted" style="margin-top:4px;font:500 11.5px var(--f-mono)">${esc(cur.rule)}</div>`:''}
+    if(cur.cam){ const k=JSON.stringify(cur.cam); if(s._cam!==k){ s._cam=k; const mir=v=>s.sg===1?[v[0],-v[1],v[2]]:v; flyTo(shipW(B(...mir(cur.cam[0]))),shipW(B(...mir(cur.cam[1]))),3.0); clearView((cur.cut||cur.clr)?shipW(B(...mir(cur.cam[0]))):null,shipW(B(...mir(cur.cam[1])))); } }
+    $('#caption').innerHTML=`<b>${esc(s.A.title)} \u00b7 step ${idx+1} of ${s.A.steps.length}</b>${esc(cur.c)}${cur.rule?`<div class="muted" style="margin-top:4px;font:500 11.5px var(--f-mono)">${esc(cur.rule)}</div>`:''}${wxAdvice(s)}
      <div class="acts" style="margin-top:6px;display:flex;gap:6px"><button class="tbtn" id="aPrev" aria-label="Previous step">\u25c0 Step</button><button class="tbtn" id="aPause">${s.paused?'\u25b6 Resume':'\u275a\u275a Pause'}</button><button class="tbtn" id="aNext" aria-label="Next step">Step \u25b6</button><button class="tbtn" id="aStop">Stop</button></div>`;
     $('#aStop').onclick=stopAnim; $('#aPause').onclick=()=>{ s.paused=!s.paused; animCaption(true); }; $('#aPrev').onclick=()=>animJump(-1); $('#aNext').onclick=()=>animJump(1); } }
 function animTick(dt){ const s=shipAnim; if(!s) return; if(!s.paused) s.t+=dt*SPEED; const tot=s.A.steps.reduce((a,b)=>a+b.d,0);
   const [i,acc]=stepAt(s.A,Math.min(s.t,tot-1e-4)); s.A.frame(s,Math.min(s.t,tot),i,Math.min(1,(s.t-acc)/s.A.steps[i].d)); animCaption(false);
   if(s.t>tot+3) stopAnim(); }
+
+// ---- environment coupling for animations ------------------------------------------------------------------------------
+// In-vessel animations (engine room, steering gear, enclosed spaces) run in the scenario's calm state: sea hidden, ship still.
+function envInside(on,harbour){ if(on){ envInside.st={bf:WX.bf,sea:sea?sea.visible:true}; if(WX.bf!==2){ WX.bf=2; wxSetup(); } if(sea&&!harbour) sea.visible=false; if(typeof toast==='function') toast(harbour?'Alongside operation: harbour conditions (calm water); your sea state is restored afterwards':'In-vessel animation: sea set to calm and hidden; your sea state is restored afterwards'); }
+  else if(envInside.st){ const st=envInside.st; envInside.st=null; if(WX.bf!==st.bf){ WX.bf=st.bf; wxSetup(); } if(sea) sea.visible=!cutaway&&!underwater; if(typeof wxCard==='function'&&$('#wxcard')) try{ wxCard(); }catch(e){} } }
+// Boats baked into ship clips float on the live wave surface once waterborne: heave, pitch and roll from the local slope,
+// clear of the ship's own roll/heave; while hanging from a davit they stay with the ship. A.float(s) lists {n, clip, tf, carry, ride}.
+const _fM=new THREE.Matrix4(), _fM2=new THREE.Matrix4(), _fP=new THREE.Vector3(), _fQ=new THREE.Quaternion(), _fS=new THREE.Vector3(), _fP2=new THREE.Vector3(), _fQ2=new THREE.Quaternion(), _fQg=new THREE.Quaternion(), _fUp=new THREE.Vector3(0,1,0), _fN=new THREE.Vector3();
+function floatInit(s){ s.flo=[]; for(const c of s.A.float(s)){ const o=nodeOf(c.n); if(!o) continue; if(!s.act||s._fclip!==c.clip){ if(s.act){ s.act.stop(); s.act=null; } }
+    clipAt(s,c.clip,c.tf); o.updateWorldMatrix(true,false); const Lf=shipL(o.getWorldPosition(new THREE.Vector3())).y; s.flo.push({...c,o,Lf}); s.act&&s.act.stop(); s.act=null; } }
+function floatTick(s){ if(!s.flo||!s.flo.length) return; shipMat(); _shWi.copy(_shW).invert(); shipGroup.getWorldQuaternion(_fQg);
+  for(const f of s.flo){ const o=f.o; unFloat(f.o,f); o.matrixWorld.decompose(_fP,_fQ,_fS); const Lm=_fM.multiplyMatrices(_shWi,o.matrixWorld); const Ly=Lm.elements[13];
+    const wet=1-sm01((Ly-(f.Lf+0.25))/1.05); if(wet<=0.001){ f.D=null; f.set=null; continue; }
+    const x=_fP.x, z=_fP.z, hx=(seaY(x+2,z)-seaY(x-2,z))/4, hz=(seaY(x,z+2)-seaY(x,z-2))/4;
+    _fN.set(-hx*(f.tilt??1),1,-hz*(f.tilt??1)).normalize(); const qt=new THREE.Quaternion().setFromUnitVectors(_fUp,_fN); const qL=new THREE.Quaternion(), _lp=new THREE.Vector3(), _ls=new THREE.Vector3(); Lm.decompose(_lp,qL,_ls);
+    _fP2.set(x,seaY(x,z)+(Ly-11.0),z); _fQ2.copy(qt).multiply(_fQg).multiply(qL);
+    const P=_fP.clone().lerp(_fP2,wet), Q=_fQ.clone().slerp(_fQ2,wet); const T=new THREE.Matrix4().compose(P,Q,_fS);
+    const D=T.clone().multiply(_fM2.copy(o.matrixWorld).invert()); setWorld(o,T); markFloat(o,f); f.D=D; f.wet=wet; f.dbg={Ly,sea:seaY(x,z),y:P.y,shipY:ship.position.y};
+    for(const n of f.carry||[]){ const c=nodeOf(n); if(!c||c.parent===o) continue; const cf=(f.cf=f.cf||{})[n]=(f.cf&&f.cf[n])||{}; unFloat(c,cf); setWorld(c,D.clone().multiply(c.matrixWorld)); markFloat(c,cf); }
+    for(const n of f.ride||[]){ const c=nodeOf(n); if(!c) continue; const rf=(f.rf=f.rf||{})[n]=(f.rf&&f.rf[n])||{}; unFloat(c,rf); const cy=_fM.multiplyMatrices(_shWi,c.matrixWorld).elements[13];   // a person stepping on/off the boat
+      const cp=c.getWorldPosition(new THREE.Vector3()); const on=(1-sm01((cy-Ly-2.6)/1.2))*(cp.distanceTo(o.getWorldPosition(new THREE.Vector3()))<7?1:0); if(on<=0.001) continue;
+      const W0=c.matrixWorld.clone(), W1=D.clone().multiply(W0); const a=new THREE.Vector3(),b=new THREE.Vector3(),qa=new THREE.Quaternion(),qb=new THREE.Quaternion(),sc=new THREE.Vector3(); W0.decompose(a,qa,sc); W1.decompose(b,qb,sc);
+      setWorld(c,new THREE.Matrix4().compose(a.lerp(b,on),qa.slerp(qb,on),sc)); markFloat(c,rf); } } }
+// the clip may not key every channel each frame: undo last frame's wave correction where the mixer did not overwrite it
+function unFloat(o,f){ if(f.set){ if(o.position.equals(f.set.p)) o.position.copy(f.pre.p); if(o.quaternion.equals(f.set.q)) o.quaternion.copy(f.pre.q); }
+  f.pre={p:o.position.clone(),q:o.quaternion.clone()}; o.updateMatrix(); o.updateWorldMatrix(true,false); }
+function markFloat(o,f){ f.set={p:o.position.clone(),q:o.quaternion.clone()}; }
+function setWorld(o,W){ const pm=o.parent?o.parent.matrixWorld:new THREE.Matrix4(); const L=new THREE.Matrix4().copy(pm).invert().multiply(W); L.decompose(o.position,o.quaternion,o.scale); o.updateMatrix(); o.updateMatrixWorld(true); }
+// Runs every frame AFTER the wave/ship motion update: effects ride with the ship, boats ride the waves, the camera rides with the ship
+// during deck/boat animations, and modules placed in the ship (e.g. the enclosed-space scene) follow loading condition and motion.
+const _pM=new THREE.Matrix4(), _pMi=new THREE.Matrix4();
+function postShip(){ if(!ship) return; ship.updateMatrix(); SHIPFX.matrix.copy(ship.matrix); SHIPFX.matrixWorldNeedsUpdate=true; shipMat();
+  if(placed&&placed.grp){ placed.grp.matrixAutoUpdate=false; placed.grp.matrix.copy(_shW).multiply(new THREE.Matrix4().makeTranslation(placed.off.x,placed.off.y,placed.off.z)); placed.grp.matrixWorldNeedsUpdate=true; }
+  const s=shipAnim; if(!s) return;
+  if(s._Mp&&!s.A.inside){ _pM.copy(_shW).multiply(_pMi.copy(s._Mp).invert()); camera.position.applyMatrix4(_pM); controls.target.applyMatrix4(_pM); if(tween){ for(const k of ['p0','p1','t0','t1']) tween[k].applyMatrix4(_pM); } }
+  s._Mp=(s._Mp||new THREE.Matrix4()).copy(_shW); floatTick(s); if(s.A.post) s.A.post(s); }
+// Heavy-weather advice shown with boat, transfer and alongside operations (Beaufort 6 and above).
+const WXADV={lifeboat:'free-fall launching in this sea is for abandonment; drills are held in calm or sheltered water',rescue:'make a lee, reduce speed and assess the risk before launching; recovery is the most dangerous phase',
+  liferaft:'launch on the lee side; the painter and boarding ladder take heavy loads as the ship rolls',lifebuoy:'a person in the water is hard to see in breaking seas: keep a lookout pointing and use the MOB marker',
+  pilot:'agree course and speed with the pilot boat to make a lee; the pilot steps across as the boat rises',combo:'agree course and speed with the pilot boat to make a lee; the accommodation ladder may need to be raised',
+  bunker:'check the company and barge weather limits: fenders and the hose suffer as the barge moves alongside',eta:'deploying the towing gear on a moving deck needs extra securing and a minimum crew',
+  heli:'check ship motion and wind against the ICS helicopter guide limits before agreeing the operation',mooring:'snap-back risk rises with surge alongside: tend lines continuously',anchor:'cable loads rise sharply in a seaway; consider more cable or heaving up'};
+function wxAdvice(s){ const a=WXADV[s.key]; if(!a||!WX||WX.bf<6) return ''; return `<div style="margin-top:4px;font:600 11.5px var(--f-mono);color:#ffb35c">Beaufort ${WX.bf}: ${esc(a)}.</div>`; }
 // effects helpers
 function fxLine(s,col){ const g=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3()]); const l=new THREE.Line(g,new THREE.LineBasicMaterial({color:col||'#222'})); s.fx.add(l); return l; }
 function setLine(l,a,b){ const p=l.geometry.attributes.position; p.setXYZ(0,a.x,a.y,a.z); p.setXYZ(1,b.x,b.y,b.z); p.needsUpdate=true; l.geometry.computeBoundingSphere(); }
-function fxSplash(s){ const m=new THREE.Mesh(new THREE.TorusGeometry(1,.12,8,40),new THREE.MeshBasicMaterial({color:'#e8f4f8',transparent:true,opacity:0})); m.rotation.x=Math.PI/2; s.fx.add(m); return m; }
-function splashAt(m,pos,k){ m.position.copy(pos); m.position.y=11.05; const r=0.5+k*6; m.scale.set(r,r,1+k); m.material.opacity=k<=0||k>=1?0:(1-k)*.8; }
-function fxSmoke(s,n){ const g=new THREE.Group(); for(let i=0;i<n;i++){ const m=new THREE.Mesh(new THREE.SphereGeometry(.35,10,8),new THREE.MeshBasicMaterial({color:'#ff7a1a',transparent:true,opacity:0,depthWrite:false})); m.userData.ph=i/n; g.add(m); } s.fx.add(g); return g; }
+function fxSplash(s){ const m=new THREE.Mesh(new THREE.TorusGeometry(1,.12,8,40),new THREE.MeshBasicMaterial({color:'#e8f4f8',transparent:true,opacity:0})); m.rotation.x=Math.PI/2; s.wfx.add(m); return m; }
+function splashAt(m,pos,k){ m.position.copy(pos); m.position.y=seaY(pos.x,pos.z)+0.05; const r=0.5+k*6; m.scale.set(r,r,1+k); m.material.opacity=k<=0||k>=1?0:(1-k)*.8; }
+function fxSmoke(s,n){ const g=new THREE.Group(); for(let i=0;i<n;i++){ const m=new THREE.Mesh(new THREE.SphereGeometry(.35,10,8),new THREE.MeshBasicMaterial({color:'#ff7a1a',transparent:true,opacity:0,depthWrite:false})); m.userData.ph=i/n; g.add(m); } s.wfx.add(g); return g; }
 function smokeAt(g,pos,t,on){ g.children.forEach(m=>{ const ph=(t*0.25+m.userData.ph)%1; m.position.set(pos.x+ph*3.5,pos.y+ph*5,pos.z+Math.sin(ph*6+m.userData.ph*9)*.6); const r=.3+ph*1.8; m.scale.setScalar(r); m.material.opacity=on?(1-ph)*.55:0; }); }
 // ---- free-fall lifeboat: launch and recovery (keyframed in Blender: clip ANIM_lifeboat, 27 s)
 ANIM.lifeboat={title:'Free-fall lifeboat: launch and recovery',
@@ -1759,24 +1812,25 @@ ANIM.lifeboat={title:'Free-fall lifeboat: launch and recovery',
         {c:'Recovery: the boat returns under the stern. The A-frame davit is luffed out clear of the stern counter and the fall is hooked on to the lifting hook.',d:8,rule:'LSA Code 6.1.4.4 (secondary means of launching and recovery)',cam:[[-36,-36,27],[-7,0,19]],clip:[12.0,21.2]},
         {c:'The boat is hoisted, the davit luffs back inboard and the boat is landed on the skid; the hook is reset and the boat secured.',d:10,rule:'SOLAS III Reg 20.11; MSC.402(96) for release gear',cam:[[-36,-36,27],[-7,0,19]],clip:[21.2,31.0]},
         {c:'Drills: every 3 months the crew board and prepare for launch; at intervals of not more than 6 months the boat is free-fall launched with its operating crew, or a simulated launching is carried out.',d:7,rule:'SOLAS III Reg 19.3.3.4',cam:[[-30,-30,30],[-3,0,23]],clip:[31.0,31.0]}],
+ float:s=>[{n:'LSA_Lifeboat',clip:'ANIM_lifeboat',tf:12.0,carry:['LSA_LifeboatWindows']}],
  start(s){ keepPose(s,['LSA_Lifeboat','LSA_LifeboatWindows','LSA_Davit','LSA_DavitFall']); s.boat=nodeOf('LSA_Lifeboat');
    // spray, foam and wake effects (the motion itself is baked in Blender)
    const wm=new THREE.MeshBasicMaterial({color:'#eef6f8',transparent:true,opacity:.85,depthWrite:false});
-   s.drops=[]; for(let n=0;n<70;n++){ const m=new THREE.Mesh(new THREE.SphereGeometry(.18+.22*Math.random(),6,5),wm.clone()); m.visible=false; s.fx.add(m);
+   s.drops=[]; for(let n=0;n<70;n++){ const m=new THREE.Mesh(new THREE.SphereGeometry(.18+.22*Math.random(),6,5),wm.clone()); m.visible=false; s.wfx.add(m);
      const a=Math.random()*Math.PI*2, up=6+7*Math.random(), out=2+5*Math.random(); s.drops.push({m,v:new THREE.Vector3(Math.cos(a)*out,up,Math.sin(a)*out),k:n%2}); }
    const fm=()=>new THREE.Mesh(new THREE.CircleGeometry(1,40),new THREE.MeshBasicMaterial({color:'#f4f8f8',transparent:true,opacity:0,depthWrite:false}));
-   s.foam=[fm(),fm()]; s.foam.forEach(f=>{ f.rotation.x=-Math.PI/2; s.fx.add(f); });
-   s.wake=[]; for(let n=0;n<26;n++){ const f=fm(); f.rotation.x=-Math.PI/2; s.fx.add(f); s.wake.push({f,t:-1,p:new THREE.Vector3()}); } s.wi=0; s.lastW=-9; s.ev=[null,null]; },
+   s.foam=[fm(),fm()]; s.foam.forEach(f=>{ f.rotation.x=-Math.PI/2; s.wfx.add(f); });
+   s.wake=[]; for(let n=0;n<26;n++){ const f=fm(); f.rotation.x=-Math.PI/2; s.wfx.add(f); s.wake.push({f,t:-1,p:new THREE.Vector3()}); } s.wi=0; s.lastW=-9; s.ev=[null,null]; },
  frame(s,t,i,k){ const c=s.A.steps[i].clip, ct=c[0]+(c[1]-c[0])*k; clipAt(s,'ANIM_lifeboat',ct);
    if(!s.boat) return; const bp=s.boat.getWorldPosition(new THREE.Vector3());
    const EV=[4.45,6.7];                                           // water entry and resurfacing (clip seconds)
-   EV.forEach((te,e)=>{ if(ct>=te&&ct<te+0.6&&!s.ev[e]) s.ev[e]={t:te,p:bp.clone().setY(11.0)}; if(ct<te) s.ev[e]=null; });
+   EV.forEach((te,e)=>{ if(ct>=te&&ct<te+0.6&&!s.ev[e]) s.ev[e]={t:te,p:bp.clone().setY(seaY(bp.x,bp.z))}; if(ct<te) s.ev[e]=null; });
    s.drops.forEach((d,n)=>{ const ev=s.ev[d.k]; const dt=ev?ct-ev.t:-1; const on=ev&&dt>0&&dt<2.2; d.m.visible=!!on;
-     if(on){ const sc=d.k?0.6:1; d.m.position.set(ev.p.x+d.v.x*dt*sc, ev.p.y+d.v.y*dt*sc-4.9*dt*dt, ev.p.z+d.v.z*dt*sc); if(d.m.position.y<11) d.m.visible=false; d.m.material.opacity=.85*(1-dt/2.2); } });
-   s.foam.forEach((f,e)=>{ const ev=s.ev[e]; const dt=ev?ct-ev.t:-1; if(ev&&dt>0&&dt<9){ f.position.copy(ev.p).setY(11.04); const r=2+Math.min(dt,3)*2.2; f.scale.set(r,r,1); f.material.opacity=.7*(1-dt/9); } else f.material.opacity=0; });
-   if(ct>7.5&&ct<21.5&&ct-s.lastW>0.35){ const w=s.wake[s.wi++%s.wake.length]; w.t=ct; w.p.copy(bp).setY(11.03); s.lastW=ct; }
+     if(on){ const sc=d.k?0.6:1; d.m.position.set(ev.p.x+d.v.x*dt*sc, ev.p.y+d.v.y*dt*sc-4.9*dt*dt, ev.p.z+d.v.z*dt*sc); if(d.m.position.y<seaY(d.m.position.x,d.m.position.z)) d.m.visible=false; d.m.material.opacity=.85*(1-dt/2.2); } });
+   s.foam.forEach((f,e)=>{ const ev=s.ev[e]; const dt=ev?ct-ev.t:-1; if(ev&&dt>0&&dt<9){ f.position.copy(ev.p).setY(seaY(ev.p.x,ev.p.z)+0.04); const r=2+Math.min(dt,3)*2.2; f.scale.set(r,r,1); f.material.opacity=.7*(1-dt/9); } else f.material.opacity=0; });
+   if(ct>7.5&&ct<21.5&&ct-s.lastW>0.35){ const w=s.wake[s.wi++%s.wake.length]; w.t=ct; w.p.copy(bp); s.lastW=ct; }
    if(ct<s.lastW-0.5){ s.lastW=-9; s.wake.forEach(w=>w.t=-1); }
-   s.wake.forEach(w=>{ const a=ct-w.t; if(w.t>=0&&a>=0&&a<8){ w.f.position.copy(w.p); const r=1.2+a*0.5; w.f.scale.set(r*1.6,r,1); w.f.material.opacity=.55*(1-a/8); } else w.f.material.opacity=0; }); }};
+   s.wake.forEach(w=>{ const a=ct-w.t; if(w.t>=0&&a>=0&&a<8){ w.f.position.copy(w.p).setY(seaY(w.p.x,w.p.z)+0.03); const r=1.2+a*0.5; w.f.scale.set(r*1.6,r,1); w.f.material.opacity=.55*(1-a/8); } else w.f.material.opacity=0; }); }};
 // ---- rescue boat: launch and recovery with the slewing davit
 ANIM.rescue={title:'Rescue boat: launch and recovery',
  steps:[{c:'The boat crew (at least 3) put on immersion suits or anti-exposure suits and lifejackets and board the boat in its cradle. The painter is rigged from well forward to the boat\u2019s bow.',d:7,rule:'SOLAS III Reg 17; LSA Code 5.1',cam:[[8,-30,30],[16.5,-14,23]],clip:[0,2]},
@@ -1787,6 +1841,7 @@ ANIM.rescue={title:'Rescue boat: launch and recovery',
         {c:'The boat is hoisted with its full complement (shown faster than real time; minimum 0.3 m/s at full load).',d:10,rule:'LSA Code 6.1.2.11 (recovery with full complement)',cam:[[34,-52,24],[19,-16,18]],clip:[38,48]},
         {c:'The davit slews inboard and the boat is landed and secured in its cradle; the fall and hook are made ready.',d:8,rule:'LSA Code 6.1.1',cam:[[8,-30,30],[16.5,-14,23]],clip:[48,56]},
         {c:'Rescue boats are launched with their crew and manoeuvred in the water each month where practicable, and at least every 3 months.',d:6,rule:'SOLAS III Reg 19.3.3',cam:[[8,-30,30],[16.5,-14,23]],clip:[56,56]}],
+ float:s=>[{n:'LSA_RescueBoat',clip:'ANIM_rescue',tf:27}],
  start(s){ keepPose(s,['LSA_RescueBoat','LSA_RescueDavitArm','LSA_RescueFall','LSA_RescuePainter']); },
  frame(s,t,i,k){ const c=s.A.steps[i].clip; clipAt(s,'ANIM_rescue',c[0]+(c[1]-c[0])*k); }};
 // ---- liferaft: throw-overboard launch and float-free
@@ -1798,6 +1853,7 @@ ANIM.liferaft={title:'Liferaft: launching, boarding and float-free',
         {c:'Rig the embarkation ladder. Haul the raft alongside under the ladder; board without jumping into the water if possible, then cut the painter with the safety knife and stream the drogue.',d:8,rule:'SOLAS III Reg 11.7 (embarkation ladders); LSA Code 4.1.5',cam:[[46,-48,26],[28,-18,17]],clip:[22,30]},
         {c:'Float-free: if the ship sinks, at a depth of 1.5\u20134 m the hydrostatic release unit frees the canister. It floats up, the painter pulls and inflates the raft, and the weak link breaks so the raft is not dragged down.',d:10,rule:'SOLAS III Reg 13.4; LSA Code 4.1.6',cam:[[46,-40,30],[28,-14,20]],clip:[30,40]},
         {c:'Liferafts and HRUs are serviced at an approved station every 12 months (extendable to 17 months); disposable HRUs are replaced on expiry.',d:6,rule:'SOLAS III Reg 20.8\u201320.9',cam:[[40,-26,27],[28,-14,22]],clip:[40,46]}],
+ float:s=>[{n:'LSA_RaftInflated_'+s.sd,clip:'ANIM_liferaft_'+s.sd,tf:25},{n:'LSA_RaftCan_'+s.sd+'1',clip:'ANIM_liferaft_'+s.sd,tf:14}],
  start(s){ const sd=(s.o&&/_P/.test(s.o.name))?'P':'S'; s.sd=sd; s.sg=sd==='P'?1:-1;
    keepPose(s,['LSA_RaftCan_'+sd+'1','LSA_RaftInflated_'+sd,'LSA_FX_Water_'+sd,'LSA_FX_EmbLadder_'+sd,'LSA_FX_Painter_'+sd]); s.can=nodeOf('LSA_RaftCan_'+sd+'1'); s.spl=fxSplash(s); },
  frame(s,t,i,k){ const c=s.A.steps[i].clip, ct=c[0]+(c[1]-c[0])*k; clipAt(s,'ANIM_liferaft_'+s.sd,ct);
@@ -1808,8 +1864,9 @@ ANIM.lifebuoy={title:'Man overboard: lifebuoy with light and smoke signal',
         {c:'The lifebuoy falls clear of the side (shown at slow speed); the smoke signal and light activate on reaching the water.',d:5,rule:'LSA Code 2.1.2, 2.1.3',cam:[[50,-42,30],[25.5,-21.5,12.5]],clip:[7,9.2]},
         {c:'Orange smoke for at least 15 minutes and a light of at least 2 cd for at least 2 hours mark the position, day and night.',d:9,rule:'LSA Code 2.1.2.1 (light \u2265 2 cd, \u2265 2 h); 2.1.3.1 (smoke \u2265 15 min)',cam:[[50,-42,30],[25.5,-21.5,12.5]],clip:[9.2,18]},
         {c:'Keep the person in sight, manoeuvre to return (e.g. a Williamson turn) and launch the rescue boat to recover them.',d:6,rule:'IAMSAR Manual Vol. III',cam:[[50,-42,30],[25.5,-21.5,12.5]],clip:[18,26.9]}],
+ float:s=>[{n:'LSA_BuoyMOB_'+s.sd,clip:'ANIM_mob_'+s.sd,tf:15}],
  start(s){ const sd=(s.o&&/_P$/.test(s.o.name))?'P':'S'; s.sd=sd; s.sg=sd==='P'?1:-1; keepPose(s,['LSA_BuoyMOB_'+sd]); s.b=nodeOf('LSA_BuoyMOB_'+sd);
-   s.smoke=fxSmoke(s,14); s.spl=fxSplash(s); s.lamp=new THREE.Mesh(new THREE.SphereGeometry(.18,10,8),new THREE.MeshBasicMaterial({color:'#fff6a8'})); s.fx.add(s.lamp); },
+   s.smoke=fxSmoke(s,14); s.spl=fxSplash(s); s.lamp=new THREE.Mesh(new THREE.SphereGeometry(.18,10,8),new THREE.MeshBasicMaterial({color:'#fff6a8'})); s.wfx.add(s.lamp); },
  frame(s,t,i,k){ const c=s.A.steps[i].clip, ct=c[0]+(c[1]-c[0])*k; clipAt(s,'ANIM_mob_'+s.sd,ct); const p=s.b.getWorldPosition(new THREE.Vector3());
    const wet=ct>9.0; if(i===1) splashAt(s.spl,p,(ct-8.9)/0.6); smokeAt(s.smoke,p,t,wet); s.lamp.visible=wet&&(Math.floor(t*1.5)%2===0); if(wet) s.lamp.position.copy(p).add(new THREE.Vector3(0.5,0.35,0)); }};
 // ---- fire hose: rigging at a hydrant, jet and spray (clip ANIM_hose, baked in Blender)
@@ -1825,7 +1882,7 @@ ANIM.hose={title:'Fire hose: rigging, jet and spray',
  start(s){ keepPose(s,[]); const names=[]; ship.traverse(o=>{ if(/^FFA_(HoseSeg|JetSeg|Nozzle_S52|Spray_S52|HoseBoxDoor_S52|HydrantWheel_S52)/.test(o.name)) names.push(o.name); }); keepPose(s,names); },
  frame(s,t,i,k){ const c=s.A.steps[i].clip; clipAt(s,'ANIM_hose',c[0]+(c[1]-c[0])*k); }};
 // ---- engine-room CO2 total flooding (clip ANIM_co2, baked in Blender)
-ANIM.co2={title:'Engine-room CO\u2082 release',
+ANIM.co2={inside:true,title:'Engine-room CO\u2082 release',
  steps:[{c:'A fire in the engine room cannot be put out by other means. The master decides to flood with CO\u2082. Everyone leaves the engine room; take a headcount at the muster point.',d:7,rule:'FSS Code Ch. 5; SOLAS II-2 Reg 10.4',cam:[[1.5,-10,22.5],[8,-6,21.2]],clip:[0,7]},
         {c:'Stop the engine-room ventilation fans and fuel pumps by the remote stops; close the fire dampers, skylights and doors, and the quick-closing fuel valves.',d:7,rule:'SOLAS II-2 Reg 5.2 (closing openings and stopping fans from outside)',cam:[[6,-8,31],[10,-3.1,23.6]],clip:[7,14]},
         {c:'Open the CO\u2082 release cabinet. This sounds the CO\u2082 alarm (siren and flashing light) in the engine room and stops the ventilation.',d:4,rule:'FSS Code Ch. 5, 2.1.3.2',cam:[[4.5,-8.6,21.5],[8,-7,20.6]],clip:[14,18]},
@@ -1847,10 +1904,11 @@ ANIM.pilot={title:'Pilot transfer by pilot ladder',
         {c:'The pilot steps across at the top of the boat\u2019s rise and climbs with both hands on the side ropes, then comes over the rail between the stanchions and is escorted to the bridge.',d:9,rule:'SOLAS V Reg 23.3.3',cam:[[80,-26,17],[70,-16.5,15]],clip:[35,45]},
         {c:'The pilot boat sheers away. The ladder is recovered to its reel and the rail bars refitted.',d:7,rule:'',cam:[[95,-42,22],[70,-18,13]],clip:[45,55]},
         {c:'Steps: at least 400 mm between ropes, 115 mm wide, 25 mm deep, 310\u2013350 mm apart; spreaders \u2265 1.8 m on the 5th step from the bottom and then every 9 steps or less. Note: amended SOLAS V Reg 23 and new standards (MSC.532(107), MSC.548(107)) apply from 1 January 2028.',d:8,rule:'ISO 799-1; IMO A.1045(27); MSC.532(107)',cam:[[73,-19.5,21.5],[70,-15.6,19.6]],clip:[55,55]}],
+ float:s=>[{n:'PT_PilotBoat',clip:'ANIM_pilot',tf:34,ride:['PT_Pilot']}],
  start(s){ keepPose(s,['PT_PilotLadder_S','PT_LadderSecuring_S','PT_RailBars_S','PT_PilotBoat','PT_Pilot']); },
  frame(s,t,i,k){ const c=s.A.steps[i].clip; clipAt(s,'ANIM_pilot',c[0]+(c[1]-c[0])*k); }};
 // ---- M9: hose crane and cargo manifold connection (clip ANIM_manifold, baked in Blender)
-ANIM.manifold={title:'M9 \u00b7 Hose crane and manifold connection',
+ANIM.manifold={harbour:true,title:'M9 \u00b7 Hose crane and manifold connection',
  steps:[{c:'Before connecting: ship/shore safety checklist agreed, scupper plugs in, drip tray empty and drain shut, SOPEP gear ready, manifold valve shut and the line drained, pressure gauge reading zero.',d:6,rule:'ISGOTT Ship/Shore Safety Checklist; MARPOL Annex I',cam:[[118,-40,40],[92,-5,20]],clip:[0,6]},
         {c:'The crane driver raises the jib out of its rest and slews over the jetty, guided by a signaller. Meanwhile the blank is removed from the starboard No.3 manifold.',d:7,rule:'Crane SWL and radius marked; limit switches; LOLER-type annual examination',cam:[[118,-40,40],[92,-5,20]],clip:[6,14]},
         {c:'The hook is lowered to the hose; a saddle or bridle is fitted about 2 m from the flange \u2014 never lift by the flange.',d:4,rule:'OCIMF hose handling',cam:[[118,-40,40],[95,-14,17]],clip:[14,16]},
@@ -1875,7 +1933,7 @@ ANIM.anchor={title:'M7 \u00b7 Anchoring: letting go and heaving up',
  end(s){ if(sea&&s.seaM){ sea.material.transparent=s.seaM[0]; if(sea.material.uniforms) sea.material.uniforms.alpha.value=s.seaM[1]; else sea.material.opacity=s.seaM[1]; sea.material.needsUpdate=true; } },
  frame(s,t,i,k){ const c=s.A.steps[i].clip; clipAt(s,'ANIM_anchor',c[0]+(c[1]-c[0])*k); }};
 // ---- M8: mooring on ISF Quest, forward spring starboard (clip ANIM_mooring, baked in Blender)
-ANIM.mooring={title:'M8 \u00b7 Mooring: running a spring line',
+ANIM.mooring={harbour:true,title:'M8 \u00b7 Mooring: running a spring line',
  steps:[{c:'Mooring party briefed, in PPE, with radio to the bridge. Winch tested, brake condition known (annual brake test), lines inspected. Everyone knows where the snap-back zones are \u2014 the whole area round a line under load is dangerous.',d:6,rule:'OCIMF MEG4; COSWP; SOLAS II-1 Reg 3-8',cam:[[160,-34,26],[146,-14,19]],clip:[0,6]},
         {c:'A heaving line is thrown to the linesmen on the berth.',d:6,rule:'',cam:[[150,-40,26],[140,-17,16]],clip:[6,14]},
         {c:'The winch pays out the forward spring through the deck chock while the linesmen pull the eye along the berth.',d:8,rule:'Never stand in a bight or between the line and the chock',cam:[[150,-40,26],[138,-18,16]],clip:[14,25]},
@@ -1886,7 +1944,7 @@ ANIM.mooring={title:'M8 \u00b7 Mooring: running a spring line',
  start(s){ const names=[]; ship.traverse(o=>{ if(/^MOOR_/.test(o.name)) names.push(o.name); }); keepPose(s,names); },
  frame(s,t,i,k){ const c=s.A.steps[i].clip; clipAt(s,'ANIM_mooring',c[0]+(c[1]-c[0])*k); }};
 // ---- rudder: SOLAS II-1 Reg 29.3.2 steering test
-ANIM.rudder={title:'Steering gear test (35\u00b0 to 30\u00b0 in 28 s)',
+ANIM.rudder={inside:true,title:'Steering gear test (35\u00b0 to 30\u00b0 in 28 s)',
  steps:[{c:'Midships. Pre-departure check: both steering pumps available, the rudder angle indicator agrees with the rudder.',d:5,rule:'SOLAS V Reg 26.1 \u2014 steering gear tested within 12 h before departure',cam:[[-24,-26,6],[1,0,4]]},
         {c:'Helm hard to starboard: rudder to 35\u00b0 starboard.',d:5,rule:'SOLAS II-1 Reg 29.3.2',cam:[[-24,-26,6],[1,0,4]]},
         {c:'Hard over from 35\u00b0 starboard to 30\u00b0 port. The limit is 28 s at the deepest draught and full speed; shown here in real time (use the speed button to speed it up).',d:28,rule:'SOLAS II-1 Reg 29.3.2 \u2014 35\u00b0 one side to 30\u00b0 the other in not more than 28 s',cam:[[-24,-26,6],[1,0,4]]},
@@ -2002,7 +2060,7 @@ ANIM.foam={title:'Deck foam: monitor attack on a spill fire',
    if(ph==='stop'){ s.flow=Math.max(0,1-k*4); s.str=0; s.ps=4.0; }
    s.jet.tick(dt,s.flow); s.fire.tick(t,s.str); s.fb.tick(t,s.str); s.pool.scale.setScalar(s.ps); }};
 // ---- emergency fire pump weekly test: start locally, two jets on deck
-ANIM.efp={title:'Emergency fire pump: weekly test',
+ANIM.efp={inside:true,title:'Emergency fire pump: weekly test',
  steps:[{c:'Weekly test. First shut the fire-main isolating valve at the accommodation front, so the emergency pump is tested as it would work with the engine room lost.',d:7,rule:'SOLAS II-2 Reg 10.2.1.4.1 (isolating valve outside the machinery space)',cam:[[40,-12,26],[33.6,-0.7,21.4]],ph:'idle'},
         {c:'In the emergency fire pump room: check the sea suction valve is open, then start the pump at the local starter. The running lamp lights and the motor runs up.',d:7,rule:'FSS Code Ch.12, 2.2 (independent drive; power from the emergency switchboard)',cam:[[7.6,-0.6,17.0],[6.2,0.8,15.8]],ph:'start'},
         {c:'The discharge pressure builds to about 7 bar. The vertical-shaft pump needs no priming: its bowl is below the lightest seagoing waterline.',d:6,rule:'FSS Code Ch.12, 2.2.1.3 (positive suction head)',cam:[[7.4,-0.4,16.9],[5.3,2.2,15.4]],ph:'run'},
@@ -2028,7 +2086,7 @@ function plumeFx(s,at){ const G=new THREE.Group(); G.position.copy(B(...at)); s.
     for(let k=0;k<N;k++){ let u=U[k]+dt*0.16; if(u>1) u-=1; U[k]=u; pos[k*3]=-u*30+J[k*2]*u*2; pos[k*3+1]=1+u*7+J[k*2+1]*u*3; pos[k*3+2]=J[k*2]*u*6; sz[k]=1.5+u*10; op[k]=dens*0.55*Math.sin(Math.PI*Math.min(1,u*1.1)); }
     P.geometry.attributes.position.needsUpdate=true; P.geometry.attributes.aS.needsUpdate=true; P.geometry.attributes.aO.needsUpdate=true; }}; }
 // ---- soot blowing the exhaust gas economiser
-ANIM.soot={title:'Soot blowing the exhaust gas economiser',
+ANIM.soot={inside:true,title:'Soot blowing the exhaust gas economiser',
  steps:[{c:'Soot builds up on the economiser tubes and, if left, can catch fire. Blow soot at the interval in the maker’s manual, with the main engine on steady load at sea.',d:7,rule:'Maker’s instructions; CIMAC Recommendation 30 (soot fires in EGEs)',cam:[[40,-45,38],[11,0,30]],ph:'idle'},
         {c:'Tell the bridge first: the soot comes out of the funnel, so not in port or near other ships, and with the wind carrying it clear of the deck and accommodation.',d:7,rule:'Company SMS; MARPOL Annex VI (no visible smoke in port areas under local rules)',cam:[[27,-30,40],[22,0,34]],ph:'idle'},
         {c:'Warm through and drain the steam line (or check the air supply on an air blower system) to avoid water hammer and wet steam.',d:7,rule:'Good engineering practice',cam:[[14.8,-3.5,26.5],[10.5,0.6,25.0]],ph:'warm',cut:1},
@@ -2061,7 +2119,7 @@ function ballastOverboard(){ if(BOB.g||!ship) return BOB; ship.updateMatrixWorld
   const o=B(21.5,-30,12.4), rc=new THREE.Raycaster(o,B(21.5,0,12.4).sub(o).normalize(),0,40); rc.camera=camera;
   const hit=rc.intersectObject(ship,true).find(h=>h.object.isMesh&&/^Hull/.test(h.object.name))||rc.intersectObject(ship,true).find(h=>h.object.isMesh);
   const P0=hit?hit.point.clone():B(21.5,-15.6,12.4); const out=B(21.5,-1,12.4).sub(B(21.5,0,12.4)).normalize();
-  const G=new THREE.Group(); scene.add(G); BOB.g=G; BOB.p0=P0; BOB.out=out;
+  const G=new THREE.Group(); SHIPFX.add(G); BOB.g=G; BOB.p0=P0; BOB.out=out;
   const lip=new THREE.Mesh(new THREE.TorusGeometry(0.22,0.05,10,24),new THREE.MeshStandardMaterial({color:0x3a3d40,roughness:0.6,metalness:0.4})); lip.position.copy(P0).addScaledVector(out,0.02); lip.lookAt(P0.clone().add(out)); G.add(lip);   // overboard opening (always shown)
   const N=1400, g=new THREE.BufferGeometry(), pos=new Float32Array(N*3); g.setAttribute('position',new THREE.BufferAttribute(pos,3));
   const W=new THREE.Points(g,new THREE.PointsMaterial({color:0xdbeef4,size:0.05,transparent:true,opacity:0.6,depthWrite:false})); W.frustumCulled=false; G.add(W);
@@ -2078,7 +2136,7 @@ function ballastOverboard(){ if(BOB.g||!ship) return BOB; ship.updateMatrixWorld
   let JT=null, jtV=-1; const buildJet=v=>{ const drop=Math.max(0.3,P0.y-11.0), tf=Math.sqrt(2*drop/9.81), pts=[]; for(let k=0;k<=16;k++){ const tt=tf*k/16; pts.push(P0.clone().addScaledVector(out,v*tt+0.05).add(new THREE.Vector3(0,-0.5*9.81*tt*tt,0))); }
     if(JT){ G.remove(JT); JT.geometry.dispose(); } JT=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts),32,0.15*Math.min(1,v/4)+0.05,12,false),JM); G.add(JT); jtV=v; };
   BOB.flow=0; BOB.rate=1; let last=0; const gv=9.81;
-  BOB.tick=(t)=>{ const dt=Math.min(0.05,Math.max(0,t-last)); last=t; const f=BOB.flow, v=3.6*BOB.rate+0.6, sea=11.0+0.02; if(Math.abs(v-jtV)>0.05) buildJet(v); JM.uniforms.uT.value=t; JM.uniforms.uF.value=Math.min(1,f*1.2); JT.visible=f>0.01;
+  BOB.tick=(t)=>{ const dt=Math.min(0.05,Math.max(0,t-last)); last=t; const f=BOB.flow, v=3.6*BOB.rate+0.6, sea=floatY(P0)+0.02; if(Math.abs(v-jtV)>0.05) buildJet(v); JM.uniforms.uT.value=t; JM.uniforms.uF.value=Math.min(1,f*1.2); JT.visible=f>0.01;
     const drop=Math.max(0.3,P0.y-sea), tf=(v*0.0+Math.sqrt(2*drop/gv)), land=P0.clone().addScaledVector(out,v*tf);
     for(let i=0;i<N;i++){ let a=age[i]+dt/(tf*1.05); if(a>1) a-=1; age[i]=a; const tt=a*tf; const on=f>0&&(i/N)<f;
       const sx=jit[i*3]*0.16*(1+tt*2), sy=jit[i*3+1]*0.16*(1+tt*2), sv=1+jit[i*3+2]*0.12;
@@ -2111,7 +2169,7 @@ function curveTube(pts,r,mat){ return new THREE.Mesh(new THREE.TubeGeometry(new 
 const FLOWMAT=(col)=>new THREE.ShaderMaterial({transparent:true,uniforms:{uT:{value:0},uOn:{value:0},uC:{value:new THREE.Color(col)}},vertexShader:'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
   fragmentShader:'uniform float uT,uOn; uniform vec3 uC; varying vec2 vUv; void main(){ float d=step(0.55,fract(vUv.x*40.0-uT*3.0))*uOn; vec3 c=mix(vec3(0.07,0.07,0.08),uC,d*0.9); gl_FragColor=vec4(c,1.0); }'});
 // ---- emergency generator: blackout test, automatic start within 45 s
-ANIM.egen={title:'Emergency generator: blackout test and automatic start',
+ANIM.egen={inside:true,title:'Emergency generator: blackout test and automatic start',
  steps:[{c:'Monthly (or weekly by company rule) the emergency generator is tested by simulating loss of the main switchboard supply. Tell the bridge and the ECR first.',d:7,rule:'SOLAS II-1 Reg 43 and 44; ISM: planned maintenance',cam:[[16.5,1.5,24.5],[11,8,21]],ph:'idle'},
         {c:'The emergency switchboard loses its feed from the main switchboard (the test breaker is opened). Emergency lighting is on battery for the moment.',d:7,rule:'SOLAS II-1 Reg 43.3 (transitional source)',cam:[[11.2,2.6,25.8],[11.0,8.2,19.8]],ph:'black',clr:1},
         {c:'The emergency generator starts automatically and must be on load within 45 seconds.',d:9,rule:'SOLAS II-1 Reg 44.1',cam:[[11.2,2.6,25.8],[11.0,8.2,19.8]],ph:'start',clr:1},
@@ -2126,7 +2184,7 @@ ANIM.egen={title:'Emergency generator: blackout test and automatic start',
    if(ph==='stop'){ s.tm.set('MAIN SUPPLY RESTORED','#7fd1a4'); s.lamp.intensity=8; }
    const run=ph==='start'?(k>0.3?1:0):ph==='on'?1:ph==='stop'?Math.max(0,1-k):0; s.pl.tick(t,run*(ph==='start'&&k<0.5?1:0.5),ph==='start'&&k<0.5?'#3b3836':'#9a9a98'); }};
 // ---- local application water mist over the generators
-ANIM.mist={title:'Local water-mist system: generator fire',
+ANIM.mist={inside:true,title:'Local water-mist system: generator fire',
  steps:[{c:'High-risk areas in the engine room (generators, purifiers, boiler front, main-engine top) are covered by a local water-mist system, so a small fire can be fought without evacuating the engine room.',d:8,rule:'SOLAS II-2 Reg 10.5.6; MSC/Circ.913 (now MSC.1/Circ.1387)',cam:[[20,-13,13.5],[13.5,-5.8,11]],ph:'idle',cut:1},
         {c:'A flame detector and a smoke detector in the same zone both alarm; the system releases automatically (or by the push button in the ECR or at the protected zone).',d:8,rule:'MSC/Circ.913 (two detectors, automatic and manual release)',cam:[[8.6,-9.0,11.6],[13.4,-5.6,10.8]],ph:'alarm',cut:1},
         {c:'Only the section valve for that zone opens: fine mist cools the fire and the surrounding steel and displaces oxygen locally. Other machinery keeps running.',d:10,rule:'MSC.1/Circ.1387',cam:[[8.6,-9.0,11.6],[13.4,-5.6,10.8]],ph:'mist',cut:1},
@@ -2143,7 +2201,7 @@ ANIM.mist={title:'Local water-mist system: generator fire',
      M.P.geometry.attributes.position.needsUpdate=true; M.P.geometry.attributes.aS.needsUpdate=true; M.P.geometry.attributes.aO.needsUpdate=true; } },
  end(s){ if(cutaway!==s.cut0){ setCutaway(s.cut0); const b=$('#cut'); if(b) b.setAttribute('aria-pressed',s.cut0); } }};
 // ---- main engine start from the bridge after preparation
-ANIM.mestart={title:'Main engine: preparation, blow-through and start',
+ANIM.mestart={inside:true,title:'Main engine: preparation, blow-through and start',
  steps:[{c:'Before departure: lube oil and jacket water pumps running, jacket water warmed (preheater), fuel circulating, starting air receivers at 30 bar, turning gear disengaged (its interlock blocks starting).',d:9,rule:'Maker’s instructions; STCW A-VIII/2 Part 3-1 (taking over / preparing)',cam:[[17.4,-3.6,6.1],[24,-0.5,8.5]],ph:'prep',cut:1,clr:1},
         {c:'Blow through on air with the indicator cocks open: a few slow turns throw out any water or oil collected in the cylinders, then close the cocks.',d:8,rule:'Maker’s instructions (prevents hydraulic lock)',cam:[[10.2,-3.4,3.9],[13.5,0,3.0]],ph:'blow',clr:1,cut:1},
         {c:'Control is transferred to the bridge. On the telegraph order the engine starts on air, fuel is admitted at about 20–25 rpm, and it runs at dead slow.',d:8,rule:'SOLAS II-1 Reg 31 (bridge control, start attempts)',cam:[[10.2,-3.4,3.9],[13.5,0,3.0]],ph:'slow',clr:1,cut:1},
@@ -2184,15 +2242,15 @@ ANIM.eta={title:'Emergency towing arrangement (aft): deployment',
    s.tug=new THREE.Group(); const th=new THREE.Mesh(new THREE.BoxGeometry(28,4,10),new THREE.MeshStandardMaterial({color:0x2a2a2a,roughness:0.7})); th.position.y=0.4; const ts=new THREE.Mesh(new THREE.BoxGeometry(8,5,7),new THREE.MeshStandardMaterial({color:0xd9d9d0})); ts.position.set(4,4.5,0); s.tug.add(th,ts); s.tug.position.copy(B(-80,0,10.8)); s.fx.add(s.tug); s.tug.visible=false; },
  frame(s,t,i,k){ const ph=s.A.steps[i].ph; const fair=B(-5.6,1.0,20.2), drum=B(-3.6,4.8,20.0); const seaY=11.0;
    let bx=-5.6, tugx=-80; if(ph==='stow'){ bx=-4.2; } if(ph==='buoy'){ bx=-6-28*Math.min(1,k*1.3); } if(ph==='pay'){ bx=-34-6*k; tugx=-80+30*k; } if(ph==='tow'){ bx=-50; tugx=-50-18*k; }
-   const bp=ph==='stow'?B(-4.2,4.8,20.9):B(bx,1.0,0); if(ph!=='stow'){ bp.y=seaY+0.15+Math.sin(t*1.3)*0.1; } s.buoy.position.copy(bp);
-   s.tug.visible=ph==='pay'||ph==='tow'; s.tug.position.copy(B(tugx-14,0.5,10.8)); s.tug.position.y=10.8+Math.sin(t*0.8)*0.15;
-   const msg=[]; if(ph!=='stow'){ msg.push(fair); const n=8; for(let j=1;j<=n;j++){ const u=j/n; const x=-5.6+(bx+5.6)*u; msg.push(B(x,1.0,Math.max(seaY+0.05,20.2-9.2*Math.pow(u,0.35)))); } }
+   const bp=ph==='stow'?B(-4.2,4.8,20.9):B(bx,1.0,0); if(ph!=='stow'){ bp.y=floatY(bp)+0.15; } s.buoy.position.copy(bp);
+   s.tug.visible=ph==='pay'||ph==='tow'; s.tug.position.copy(B(tugx-14,0.5,10.8)); s.tug.position.y=floatY(s.tug.position)-0.2;
+   const msg=[]; if(ph!=='stow'){ msg.push(fair); const n=8; for(let j=1;j<=n;j++){ const u=j/n; const x=-5.6+(bx+5.6)*u; const q=B(x,1.0,0); msg.push(B(x,1.0,Math.max(floatY(q)+0.05,20.2-9.2*Math.pow(u,0.35)))); } }
    if(s.line){ s.fx.remove(s.line); s.line.geometry.dispose(); s.line=null; } if(msg.length>2){ s.line=curveTube(msg,ph==='buoy'?0.03:0.05,ph==='buoy'?s.lm:s.pm); s.fx.add(s.line); } }};
 // ---- accommodation ladder (port-side of the house, -y side): built procedurally, stowed against the side shell, animated when rigged
 const ACCL={g:null};
 function accLadder(){ if(ACCL.g||!ship) return ACCL; const L=17.5, W=0.75;
   const grey=new THREE.MeshStandardMaterial({color:0x9aa3a8,metalness:0.6,roughness:0.45}), alu=new THREE.MeshStandardMaterial({color:0xc9cfd2,metalness:0.7,roughness:0.35}), yel=new THREE.MeshStandardMaterial({color:0xe2b21c,roughness:0.5}), net=(()=>{ const c=document.createElement('canvas'); c.width=c.height=64; const g=c.getContext('2d'); g.strokeStyle='rgba(235,228,200,1)'; g.lineWidth=3; g.beginPath(); g.moveTo(0,0); g.lineTo(64,64); g.moveTo(64,0); g.lineTo(0,64); g.stroke(); const t=new THREE.CanvasTexture(c); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(70,12); return new THREE.MeshBasicMaterial({map:t,transparent:true,alphaTest:0.3,side:THREE.DoubleSide}); })();
-  const piv=new THREE.Group(); piv.position.copy(B(37.5,-16.75,19.55)); scene.add(piv);           // turntable at the deck edge
+  const piv=new THREE.Group(); piv.position.copy(B(37.5,-16.75,19.55)); SHIPFX.add(piv);           // turntable at the deck edge
   const roll=new THREE.Group(); piv.add(roll); const body=new THREE.Group(); roll.add(body);         // body along local +x (aft -> fwd along the ship)
   for(const z of [-W/2,W/2]){ const st=new THREE.Mesh(new THREE.BoxGeometry(L,0.28,0.06),alu); st.position.set(L/2,0,z); body.add(st); }
   const steps=[]; for(let i=0;i<Math.floor(L/0.3)-1;i++){ const sp=new THREE.Group(); sp.position.set(0.3+i*0.3,0,0); const tr=new THREE.Mesh(new THREE.BoxGeometry(0.24,0.03,W-0.06),grey); sp.add(tr); body.add(sp); steps.push(sp); }
@@ -2202,15 +2260,15 @@ function accLadder(){ if(ACCL.g||!ship) return ACCL; const L=17.5, W=0.75;
   const wheel=new THREE.Mesh(new THREE.CylinderGeometry(0.14,0.14,0.08,16),yel); wheel.rotation.x=Math.PI/2; wheel.position.set(L+0.8,-0.15,0); body.add(wheel);
   const netM=new THREE.Mesh(new THREE.PlaneGeometry(L,3.0),net); netM.position.set(L/2,-1.4,0); netM.rotation.x=Math.PI/2; netM.visible=false; body.add(netM);
   const tt=new THREE.Mesh(new THREE.CylinderGeometry(0.5,0.5,0.15,20),yel); piv.add(tt);
-  const davH=B(52.5,-16.4,25.2), dav=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.15,5.6,12),grey); dav.position.copy(B(52.5,-15.9,22.4)); scene.add(dav);
+  const davH=B(52.5,-16.4,25.2), dav=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.15,5.6,12),grey); dav.position.copy(B(52.5,-15.9,22.4)); SHIPFX.add(dav);
   const fallM=new THREE.MeshStandardMaterial({color:0x444444,metalness:0.7,roughness:0.4}); let fall=null;
-  const quay=new THREE.Mesh(new THREE.BoxGeometry(140,2.2,22),new THREE.MeshStandardMaterial({color:0x8d8b86,roughness:0.95})); quay.position.copy(B(45,-30.6,11.5)); quay.visible=false; scene.add(quay);
+  const quay=new THREE.Mesh(new THREE.BoxGeometry(140,2.2,22),new THREE.MeshStandardMaterial({color:0x8d8b86,roughness:0.95})); quay.position.copy(B(45,-30.6,11.5)); quay.visible=false; SHIPFX.add(quay);
   ACCL.g=piv; ACCL.netM=netM; ACCL.quay=quay;
   ACCL.set=(rollA,pitchA,showNet)=>{ roll.rotation.x=rollA; body.rotation.z=pitchA; steps.forEach(sp=>sp.rotation.z=-pitchA); netM.visible=!!showNet;      // self-levelling steps
-    piv.updateMatrixWorld(true); const end=new THREE.Vector3(L,0,0); body.localToWorld(end); if(fall){ scene.remove(fall); fall.geometry.dispose(); }
-    fall=new THREE.Mesh(new THREE.TubeGeometry(new THREE.LineCurve3(davH,end),2,0.02,6,false),fallM); scene.add(fall); };
+    piv.updateMatrixWorld(true); const end=new THREE.Vector3(L,0,0); body.localToWorld(end); SHIPFX.updateMatrixWorld(true); SHIPFX.worldToLocal(end); if(fall){ SHIPFX.remove(fall); fall.geometry.dispose(); }
+    fall=new THREE.Mesh(new THREE.TubeGeometry(new THREE.LineCurve3(davH,end),2,0.02,6,false),fallM); SHIPFX.add(fall); };
   ACCL.set(Math.PI/2,0,false); return ACCL; }
-ANIM.accladder={title:'Accommodation ladder: rigging alongside',
+ANIM.accladder={harbour:true,title:'Accommodation ladder: rigging alongside',
  steps:[{c:'The accommodation ladder is stowed against the side shell. Before rigging: check the wire falls, winch brake and limit switches, the turntable, the stanchions and the safety net. Test certificate and 5-yearly load test in date.',d:9,rule:'SOLAS II-1 Reg 3-9; MSC.1/Circ.1331 (construction, inspection and maintenance)',cam:[[46,-34,22],[44,-16.5,18]],ph:'stow'},
         {c:'Swing the ladder out on its turntable and lower it with the winch, slowly and under the officer’s control; nobody on the ladder while it moves.',d:10,rule:'MSC.1/Circ.1331',cam:[[60,-36,21],[47,-17,16]],ph:'out'},
         {c:'Lower until the bottom platform rests on the quay with its roller; the steps level themselves. The angle must stay within the maker’s limit (55° maximum).',d:10,rule:'SOLAS II-1 Reg 3-9; ISO 5488',cam:[[60,-36,21],[47,-17,15.5]],ph:'down'},
@@ -2222,7 +2280,7 @@ ANIM.accladder={title:'Accommodation ladder: rigging alongside',
    s.r=tr[0]; s.p=tr[1]; ACCL.set(s.r,s.p,ph==='net'); },
  end(s){ ACCL.set(Math.PI/2,0,false); ACCL.quay.visible=false; }};
 // ---- enclosed space entry into the forward cofferdam
-ANIM.encl={title:'Enclosed space entry: forward cofferdam',
+ANIM.encl={inside:true,title:'Enclosed space entry: forward cofferdam',
  steps:[{c:'A cofferdam is an enclosed space: it may lack oxygen or hold hydrocarbon or H₂S gas leaking from the next cargo tank. Entry only with a permit signed by the master or a responsible officer.',d:9,rule:'SOLAS XI-1 Reg 7; IMO A.1050(27) (Revised Recommendations for entering enclosed spaces)',cam:[[166,-6,26],[158.5,6,19]],ph:'shut'},
         {c:'Open the manhole and ventilate with a portable fan: fresh air pushed to the bottom through a duct, for long enough to change the atmosphere several times.',d:9,rule:'IMO A.1050(27) 6; ISGOTT 6 Ch.10',cam:[[163,-1,23],[158.5,6,19.2]],ph:'vent'},
         {c:'Test the atmosphere from outside at the top, middle and bottom with a calibrated multi-gas meter: O₂ 20.9%, hydrocarbons below 1% LFL, H₂S and CO below their limits.',d:11,rule:'IMO A.1050(27) 7; ISGOTT 6 Ch.10',cam:[[161,2.5,21.5],[158.5,6,18.5]],ph:'test'},
@@ -2256,7 +2314,7 @@ function drawCcr(t){ const tanks=['1P','1S','2P','2S','3P','3S','4P','4S','5P','
   { const S=SCREENS.ccr_bal, g=S.g, W=S.c.width; scrHead(g,W,'BALLAST / STABILITY  (LOADING COMPUTER)','LDC'); const dr=(9.6+Math.sin(t*0.01)*0.4);
     [['DRAUGHT FWD',(dr-0.3).toFixed(2)+' m'],['DRAUGHT AFT',(dr+0.3).toFixed(2)+' m'],['TRIM','0.60 m by stern'],['GM (corr.)','3.42 m'],['SF max','62 % OK'],['BM max','71 % OK']].forEach(([k,v],i)=>{ g.fillStyle='#7f95ad'; g.font='14px monospace'; g.fillText(k,24+(i%2)*370,80+Math.floor(i/2)*90); g.fillStyle='#ffd27a'; g.font='bold 28px monospace'; g.fillText(v,24+(i%2)*370,112+Math.floor(i/2)*90); });
     S.tx.needsUpdate=true; } }
-function ccrConsole(){ if(CCRT.g||!ship) return; mkScreen('ccr_cargo',768,384); mkScreen('ccr_ig',768,384); mkScreen('ccr_bal',768,384); const G=new THREE.Group(); CCRT.g=G; scene.add(G);
+function ccrConsole(){ if(CCRT.g||!ship) return; mkScreen('ccr_cargo',768,384); mkScreen('ccr_ig',768,384); mkScreen('ccr_bal',768,384); const G=new THREE.Group(); CCRT.g=G; SHIPFX.add(G);
   const body=new THREE.MeshStandardMaterial({color:0xb9bec2,metalness:0.2,roughness:0.5}), top=new THREE.MeshStandardMaterial({color:0x33393f,roughness:0.6});
   const c=new THREE.Mesh(new THREE.BoxGeometry(0.9,0.85,6.2),body); c.position.copy(B(30.2,-6.7,19.55)); G.add(c); const d=new THREE.Mesh(new THREE.BoxGeometry(0.95,0.04,6.25),top); d.position.copy(B(30.15,-6.7,19.99)); G.add(d);
   ['ccr_cargo','ccr_ig','ccr_bal'].forEach((k,i)=>{ const m=new THREE.Mesh(new THREE.PlaneGeometry(1.15,0.58),new THREE.MeshBasicMaterial({map:SCREENS[k].tx,color:0xd8d8d8,toneMapped:false})); m.position.copy(B(30.25,-4.7-i*2.0,20.45)); m.rotation.y=-Math.PI/2; m.rotateX(-0.22); SCREENS[k].tx.flipY=true; G.add(m);
@@ -2363,17 +2421,17 @@ ANIM.heli={title:'Helicopter winching operation',
         {c:'The helicopter comes to a hover over the winching area and lowers the hook. Never touch the hook before it has touched the deck: it may carry a static charge.',d:11,rule:'ICS Guide (static discharge, hook handling)',cam:[[168,-26,32],[144,5,28]],ph:'lower'},
         {c:'Persons or loads are hooked on by the deck party; the hook is never attached to any part of the ship. The winchman controls the lift.',d:10,rule:'ICS Guide; helicopter landing officer in charge on deck',cam:[[162,-20,28],[144,5,26]],ph:'lift'},
         {c:'The helicopter departs; the deck is inspected and operations resume only when the master agrees.',d:7,rule:'ICS Guide',cam:[[175,-25,40],[144,5,19.5]],ph:'away'}],
- start(s){ s.h=heliModel(); s.fx.add(s.h); s.lineM=new THREE.MeshBasicMaterial({color:0x222222}); s.line=null; s.hook=new THREE.Mesh(new THREE.SphereGeometry(0.15,10,8),new THREE.MeshStandardMaterial({color:0xe2b21c})); s.fx.add(s.hook);
-   s.deckY=deckAt(144,5,30); s.load=new THREE.Mesh(new THREE.CapsuleGeometry(0.28,1.0,6,10),new THREE.MeshStandardMaterial({color:0xff7a1a})); s.fx.add(s.load); s.load.visible=false; s.lab=labelSprite(s,[144,-4,0],2.8); s.lab.sp.position.y=s.deckY+3.5; },
+ start(s){ s.h=heliModel(); s.wfx.add(s.h); s.lineM=new THREE.MeshBasicMaterial({color:0x222222}); s.line=null; s.hook=new THREE.Mesh(new THREE.SphereGeometry(0.15,10,8),new THREE.MeshStandardMaterial({color:0xe2b21c})); s.wfx.add(s.hook);
+   s.deckY=deckAt(144,5,30); s.load=new THREE.Mesh(new THREE.CapsuleGeometry(0.28,1.0,6,10),new THREE.MeshStandardMaterial({color:0xff7a1a})); s.wfx.add(s.load); s.load.visible=false; s.lab=labelSprite(s,[144,-4,0],2.8); s.lab.sp.position.y=s.deckY+3.5; },
  frame(s,t,i,k){ const ph=s.A.steps[i].ph; const hov=s.deckY+15; let hp=B(144,5,0); hp.y=hov;
    if(ph==='prep'){ hp=B(144+80*(1-k),5+30*(1-k),0); hp.y=hov+12*(1-k); } if(ph==='away'){ hp=B(144-90*k,5-20*k,0); hp.y=hov+15*k; }
-   s.h.position.copy(hp); s.h.position.y+=Math.sin(t*1.3)*0.25; s.h.rotation.y=Math.PI*0.08; s.h.userData.rot.rotation.y=t*28; s.h.userData.tr.rotation.z=t*60;
-   const hs=new THREE.Vector3(); s.h.userData.hoist.getWorldPosition(hs); let hy=hs.y; if(ph==='lower') hy=hs.y-(hs.y-s.deckY-0.2)*Math.min(1,k*1.3); if(ph==='lift') hy=s.deckY+0.2+(hs.y-1.2-s.deckY)*Math.max(0,(k-0.35)/0.65);
+   { const yy=hp.y; hp=shipW(hp); hp.y=yy; } const dW=shipW(B(144,5,s.deckY)).y; s.h.position.copy(hp); s.h.position.y+=Math.sin(t*1.3)*0.25; s.h.rotation.y=Math.PI*0.08; s.h.userData.rot.rotation.y=t*28; s.h.userData.tr.rotation.z=t*60;
+   const hs=new THREE.Vector3(); s.h.userData.hoist.getWorldPosition(hs); let hy=hs.y; if(ph==='lower') hy=hs.y-(hs.y-dW-0.2)*Math.min(1,k*1.3); if(ph==='lift') hy=dW+0.2+(hs.y-1.2-dW)*Math.max(0,(k-0.35)/0.65);
    s.hook.position.set(hs.x,hy,hs.z); s.load.visible=ph==='lift'; s.load.position.set(hs.x,hy-0.9,hs.z);
-   if(s.line){ s.fx.remove(s.line); s.line.geometry.dispose(); s.line=null; } const len=hs.y-hy; if(len>0.05){ s.line=new THREE.Mesh(new THREE.BoxGeometry(0.03,len,0.03),s.lineM); s.line.position.set(hs.x,(hs.y+hy)/2,hs.z); s.fx.add(s.line); }
+   if(s.line){ s.wfx.remove(s.line); s.line.geometry.dispose(); s.line=null; } const len=hs.y-hy; if(len>0.05){ s.line=new THREE.Mesh(new THREE.BoxGeometry(0.03,len,0.03),s.lineM); s.line.position.set(hs.x,(hs.y+hy)/2,hs.z); s.wfx.add(s.line); }
    s.lab.set(ph==='prep'?'CARGO OPS STOPPED':ph==='lower'?(k<0.8?'HOOK: DO NOT TOUCH':'HOOK EARTHED ON DECK'):ph==='lift'?'WINCHING':'DEPARTED',ph==='lower'&&k<0.8?'#ff6b61':'#ffd27a'); }};
 // ---- engine room in operation: main engine under way, shaft turning, generators and purifiers running, ECR screens live
-ANIM.erun={title:'Engine room in operation (sea passage)',
+ANIM.erun={inside:true,title:'Engine room in operation (sea passage)',
  steps:[{c:'At sea the main engine drives the propeller directly at about 90 rpm. Bridge control: the engine follows the telegraph, the engineer watches from the ECR.',d:8,rule:'SOLAS II-1 Reg 31 (machinery controls)',cam:[[17,-30,13],[21,0,8]],ph:'a',cut:1},
         {c:'The intermediate shaft turns between its bearings to the stern tube. Bearing temperatures and the stern-tube seal are checked on rounds.',d:8,rule:'Class: shafting survey; ER round sheet',cam:[[10.2,-3.4,3.9],[13.5,0,3.0]],ph:'a',cut:1},
         {c:'Two generators share the electrical load (about 60% each); the third is on standby and starts automatically if one trips.',d:8,rule:'SOLAS II-1 Reg 41 (main source of electrical power)',cam:[[18.5,-12.0,12.5],[13,-5.5,10.5]],ph:'a',cut:1},
@@ -2563,7 +2621,7 @@ loadModel('life').then(sc=>{ const g={}; sc.traverse(o=>{ if(o.isMesh) g[o.name.
   if(Dg) for(const D of DOLS) D.m.geometry=Dg; if(Wg) WHALE.geometry=Wg; }).catch(()=>{});
 const _v1=new THREE.Vector3(), _v2=new THREE.Vector3(), _m4=new THREE.Matrix4(), _q4=new THREE.Quaternion(), _s4=new THREE.Vector3(), _e4=new THREE.Euler(), _up=new THREE.Vector3(0,1,0);
 function lookAlong(obj,dir){ _m4.lookAt(new THREE.Vector3(0,0,0),dir,_up); obj.quaternion.setFromRotationMatrix(_m4); obj.rotateY(Math.PI/2); }
-window.TQ={get goStep(){return goStep},get esr(){return esrShared},get WX(){return WX},get COND(){return COND},get flyTo(){return flyTo},get B(){return B},get W(){return WHALE},get D(){return DOLS},get VOY(){return VOY},get setNight(){return setNight},get sea(){return sea},get ship(){return ship},get hotspotClick(){return hotspotClick},get startAnim(){return startAnim},get sun(){return sun},get ACCL(){return ACCL},get SCHOOLS(){return SCHOOLS},get THREE(){return THREE},get renderer(){return renderer},get camera(){return camera},get animJump(){return animJump},get stopAnim(){return stopAnim},get nodeOf(){return nodeOf},get FOAM(){return FOAM}};
+window.TQ={get goStep(){return goStep},get wxSetup(){return wxSetup},get shipW(){return shipW},get seaY(){return seaY},get sea(){return sea},get shipAnim(){return shipAnim},get esr(){return esrShared},get WX(){return WX},get COND(){return COND},get flyTo(){return flyTo},get B(){return B},get W(){return WHALE},get D(){return DOLS},get VOY(){return VOY},get setNight(){return setNight},get sea(){return sea},get ship(){return ship},get hotspotClick(){return hotspotClick},get startAnim(){return startAnim},get sun(){return sun},get ACCL(){return ACCL},get SCHOOLS(){return SCHOOLS},get THREE(){return THREE},get renderer(){return renderer},get camera(){return camera},get animJump(){return animJump},get stopAnim(){return stopAnim},get nodeOf(){return nodeOf},get FOAM(){return FOAM}};
 function lifeTick(t){ SEA_T.value=t; const sea=11;
   for(const D of DOLS){ const u=t*0.22+D.ph; const R=20; // loop ahead of the bow, out to the side and back
     const cx=214, cz=0; const x=cx+Math.cos(u)*R*0.9, z=cz+Math.sin(u)*R+D.lane*0.4;
@@ -2683,7 +2741,7 @@ function loop(now){
         if(placed.some(q=>R[0]<q[2]&&R[2]>q[0]&&R[1]<q[3]&&R[3]>q[1])) vis=false; else placed.push(R); }
       h.el.style.visibility=vis?'visible':'hidden'; }
   }
-  { const er=!!(cutaway&&shipGroup.visible); erLights.visible=er; if(!shipEnvOn&&!uwOn){ renderer.toneMappingExposure=er?0.78:1.05; hemi.intensity=er?0.38:0.6; sun.intensity=er?0.9:1.4; } } tourTick(); lifeTick(performance.now()/1000); { const now=performance.now(), dt=Math.min(0.1,(now-spinT)/1000); spinT=now; for(const o of SPIN) o.rotation.y+=dt*o.userData.spin*Math.PI/30*(reduce?0:1); } const below=!!(shipGroup.visible&&mode==='ship'&&!cutaway&&camera.position.y<10.9); if(below){ uwEnv(true); if(sea) sea.visible=false; uwTick(performance.now()/1000); } else { if(uwOn){ uwEnv(false); if(sea) sea.visible=!cutaway&&!underwater; } shipEnv(!!(shipGroup.visible&&mode==='ship'&&!underwater&&!cutaway)); } if(sea&&sea.material.uniforms&&!reduce) sea.material.uniforms.time.value+=1/90; { const tt=performance.now()/1000, vd=Math.min(0.1,tt-(loop._vt||tt)); loop._vt=tt; wxTick(vd); voyageTick(tt,vd); condTick(); wxLive(tt); washTick(tt,vd); navLightsTick(); nightApply(); screensTick(tt); ecrTick(tt); ccrTick(tt); lbSeeThrough(); consoleTick(tt,vd); }
+  { const er=!!(cutaway&&shipGroup.visible); erLights.visible=er; if(!shipEnvOn&&!uwOn){ renderer.toneMappingExposure=er?0.78:1.05; hemi.intensity=er?0.38:0.6; sun.intensity=er?0.9:1.4; } } tourTick(); lifeTick(performance.now()/1000); { const now=performance.now(), dt=Math.min(0.1,(now-spinT)/1000); spinT=now; for(const o of SPIN) o.rotation.y+=dt*o.userData.spin*Math.PI/30*(reduce?0:1); } const below=!!(shipGroup.visible&&mode==='ship'&&!cutaway&&camera.position.y<10.9); if(below){ uwEnv(true); if(sea) sea.visible=false; uwTick(performance.now()/1000); } else { if(uwOn){ uwEnv(false); if(sea) sea.visible=!cutaway&&!underwater; } shipEnv(!!(shipGroup.visible&&mode==='ship'&&!underwater&&!cutaway)); } if(sea&&sea.material.uniforms&&!reduce) sea.material.uniforms.time.value+=1/90; { const tt=performance.now()/1000, vd=Math.min(0.1,tt-(loop._vt||tt)); loop._vt=tt; wxTick(vd); voyageTick(tt,vd); condTick(); postShip(); wxLive(tt); washTick(tt,vd); navLightsTick(); nightApply(); screensTick(tt); ecrTick(tt); ccrTick(tt); lbSeeThrough(); consoleTick(tt,vd); }
   if(composer===null&&AO_ON&&!loop._ao){ loop._ao=1; setupComposer(); resize(); }
   shadowFit();
   if(composer) composer.render(); else renderer.render(scene,camera); requestAnimationFrame(loop);
@@ -2922,17 +2980,17 @@ const NAVL=[ // [key, Blender xyz, colour, arc from..to (relative bearing, deg),
  ['anchF',[166.3,0,30.85],0xfff6e0,null,['anchored']],['anchA',[-5.0,3.6,25.1],0xfff6e0,null,['anchored']],
  ...[2.8,-2.8].flatMap(y=>[['treeR1',[24.92,y,41.0],0xff2a1a,null,['nuc','ram','cbd']],['treeR2',[24.92,y,39.0],0xff2a1a,null,['cbd']],['treeW',[24.28,y,39.0],0xfff6e0,null,['ram']],['treeR3',[24.92,y,37.0],0xff2a1a,null,['nuc','ram','cbd']]])];
 const glowTex=(()=>{ const c=document.createElement('canvas'); c.width=c.height=64; const g=c.getContext('2d'); const r=g.createRadialGradient(32,32,0,32,32,32); r.addColorStop(0,'rgba(255,255,255,1)'); r.addColorStop(0.18,'rgba(255,255,255,.85)'); r.addColorStop(0.5,'rgba(255,255,255,.18)'); r.addColorStop(1,'rgba(255,255,255,0)'); g.fillStyle=r; g.fillRect(0,0,64,64); return new THREE.CanvasTexture(c); })();
-const NAVG=new THREE.Group(); NAVG.visible=false; scene.add(NAVG);
+const NAVG=new THREE.Group(); NAVG.visible=false; SHIPFX.add(NAVG);
 for(const L of NAVL){ const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,color:L[2],blending:THREE.AdditiveBlending,depthWrite:false,sizeAttenuation:false,fog:false})); sp.scale.setScalar(0.028); sp.position.copy(B(...L[1])); sp.userData.L=L;
   NAVG.add(sp); }
-const DECKL=new THREE.Group(); for(const [x,y] of [[55,0],[105,0],[150,0]]){ const l=new THREE.PointLight(0xffe2b0,40,40,1.5); l.position.copy(B(x,y,27)); DECKL.add(l); } DECKL.visible=false; scene.add(DECKL);
+const DECKL=new THREE.Group(); for(const [x,y] of [[55,0],[105,0],[150,0]]){ const l=new THREE.PointLight(0xffe2b0,40,40,1.5); l.position.copy(B(x,y,27)); DECKL.add(l); } DECKL.visible=false; SHIPFX.add(DECKL);
 const SHAPES=new THREE.Group(); { const bm=new THREE.MeshStandardMaterial({color:0x080808,roughness:0.8}); const ball=new THREE.SphereGeometry(0.3,16,12);
   const a=new THREE.Mesh(ball,bm); a.position.copy(B(165.8,1.0,32.9)); a.userData.mode='anchored'; SHAPES.add(a);
   const add=(geo,z,md)=>{ const b=new THREE.Mesh(geo,bm); b.position.copy(B(24.6,3.35,z)); b.userData.mode=md; SHAPES.add(b); };   // hoisted on the halyard at the port yard arm
   add(ball,40.2,'nuc'); add(ball,38.2,'nuc');
   const dia=new THREE.OctahedronGeometry(0.42,0); dia.scale(0.71,1,0.71); add(ball,40.4,'ram'); add(dia,38.9,'ram'); add(ball,37.4,'ram');
   add(new THREE.CylinderGeometry(0.3,0.3,0.6,16),39.5,'cbd');
-  for(const md of ['nuc','ram','cbd']){ const zb={nuc:37.9,ram:37.1,cbd:39.2}[md]; const L=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.008,41.38-zb,4),bm); L.position.copy(B(24.6,3.35,(41.38+zb)/2)); L.userData.mode=md; SHAPES.add(L); } } scene.add(SHAPES);
+  for(const md of ['nuc','ram','cbd']){ const zb={nuc:37.9,ram:37.1,cbd:39.2}[md]; const L=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.008,41.38-zb,4),bm); L.position.copy(B(24.6,3.35,(41.38+zb)/2)); L.userData.mode=md; SHAPES.add(L); } } SHIPFX.add(SHAPES);
 const _bv=new THREE.Vector3();
 function navLightsTick(){ const on=VOY.night&&mode==='ship'&&shipGroup.visible; NAVG.visible=on; DECKL.visible=on&&VOY.lights==='anchored';
   for(const s of SHAPES.children) s.visible=!VOY.night&&mode==='ship'&&shipGroup.visible&&s.userData.mode===VOY.lights;
@@ -3012,7 +3070,7 @@ function voyageTick(t,dt){ const go=VOY.underway&&mode==='ship'&&!cutaway&&!ship
   { const fl=voyageTick.f; if(fl.g) fl.g.visible=VOY.underway; if(fl.s) fl.s.visible=!VOY.underway; fl.b.forEach(o=>o.visible=!VOY.underway); }
   const _M=voyageTick._M||(voyageTick._M=new THREE.Matrix4());
   if(voyageAttach.subm) for(const o of voyageAttach.subm) o.visible=!!shipAnim;
-  const flt=mode==='ship'&&!cutaway&&!shipAnim&&shipGroup.visible&&ext&&!reduce;
+  const flt=mode==='ship'&&!cutaway&&shipGroup.visible&&!reduce&&(shipAnim?!shipAnim.A.inside:ext);
   if(flt){ _em.set(WX.st.r, 0, WX.st.p,'XYZ'); _qm.setFromEuler(_em); _M.compose(PIV.clone().sub(PIV.clone().applyQuaternion(_qm)).add(new THREE.Vector3(0,WX.st.h,0)),_qm,new THREE.Vector3(1,1,1)); }
   else _M.identity();
   _M.multiply(COND.Mc); _M.decompose(ship.position,ship.quaternion,ship.scale); }
