@@ -308,7 +308,7 @@ function flyTo(pos,target,dur=2.6){tween={p0:camera.position.clone(),t0:controls
 const loader=new GLTFLoader(); { const dl=new DRACOLoader(); dl.setDecoderPath('./'); dl.setDecoderConfig({type:'js'}); loader.setDRACOLoader(dl); }
 const b64=s=>{const bin=atob(s),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u.buffer;};
 const loaded={};
-const BUILD='75';   // bump on every release so browsers fetch the new model files (deploy_site.py does this automatically)
+const BUILD='76';   // bump on every release so browsers fetch the new model files (deploy_site.py does this automatically)
 const BUILD_DATE='2026-10-18';
 { const v=document.getElementById('ver'); if(v) v.textContent='v1.'+BUILD+' \u00b7 '+BUILD_DATE; }
 // ---- photographic sky (CC0 HDRI, Poly Haven 'kloofendal 48d partly cloudy, pure sky'): background, reflections, sun direction and haze colour
@@ -1651,17 +1651,17 @@ function showShip(){ if(typeof clearView==='function') clearView(null);
 // ---- UX v2 helpers
 // ---- animation catalogue: one list drives the Animations menu and the sidebar; any new ANIM key shows up automatically
 const ANIM_GROUPS=[  // 'm:<hotspot>' = step-by-step system module, otherwise a ship animation key
- ['Cargo operations',['m:hs_load','m:hs_dwp','manifold','pvvent','gauge','m:hs_ig','m:hs_tankclean','m:hs_pumproom']],
+ ['Cargo operations',['m:hs_load','m:hs_dwp','manifold','esd','pvvent','gauge','m:hs_ig','m:hs_tankclean','m:hs_pumproom']],
  ['Ballast and bunkering',['m:hs_ballast','deballast','bunker']],
  ['Mooring and anchoring',['anchor','mooring']],
- ['Navigation and bridge',['lights','rudder']],
+ ['Navigation and bridge',['lights','rudder','steer']],
  ['Ship access and pilot',['pilot','combo','accladder']],
- ['Engine room',['m:hs_er','mestart','erun','m:hs_egr','soot','scrub']],
+ ['Engine room',['m:hs_er','mestart','erun','eca','m:hs_egr','soot','scrub']],
  ['Fire-fighting',['hose','foam','co2','efp','mist']],
  ['Life-saving and drills',['muster','lifeboat','rescue','liferaft','lifebuoy']],
- ['Emergency and special operations',['m:hs_esr','encl','epirb','eta','heli']],
+ ['Emergency and special operations',['m:hs_esr','encl','hotwork','epirb','eta','heli']],
  ['Environment (MARPOL)',['odme','ows','sopep','garbage']]];
-const ANIM_SEL={odme:'ODME_ControlUnit',pvvent:'GA_PVValve_3S',epirb:'LSA_EPIRB',ows:'EM_OWS',gauge:'GA_TankTop_3P',heli:'DK_WinchingArea',muster:'LSA_MusterStation',sopep:'GA_ManifoldValves',encl:'COFF_Fwd_S',accladder:'SS_Accommodation',egen:'EMS_EmergencyGenRoom',mist:'EMS_WaterMist',mestart:'EM_MainEngine',bunker:'BK_BunkerStation',eta:'ETA_Aft',deballast:'EM_BWTS',lifeboat:'LSA_Lifeboat',rescue:'LSA_RescueBoat',foam:'GA_FoamMonitors',efp:'FFA_EmFirePump',soot:'EM_ExhGasEconomiser',scrub:'EM_ScrubberEGCS',erun:'EM_MainEngine',anchor:'ANC2_CableLifter_S',mooring:'MOOR_Drum_S',manifold:'CR_Jib',co2:'AC_U_CO2Room'};
+const ANIM_SEL={esd:'GA_ManifoldValves',hotwork:'GA_TankTop_3P',eca:'EM_FuelSupplyUnit',steer:'APP_SteeringGear',odme:'ODME_ControlUnit',pvvent:'GA_PVValve_3S',epirb:'LSA_EPIRB',ows:'EM_OWS',gauge:'GA_TankTop_3P',heli:'DK_WinchingArea',muster:'LSA_MusterStation',sopep:'GA_ManifoldValves',encl:'COFF_Fwd_S',accladder:'SS_Accommodation',egen:'EMS_EmergencyGenRoom',mist:'EMS_WaterMist',mestart:'EM_MainEngine',bunker:'BK_BunkerStation',eta:'ETA_Aft',deballast:'EM_BWTS',lifeboat:'LSA_Lifeboat',rescue:'LSA_RescueBoat',foam:'GA_FoamMonitors',efp:'FFA_EmFirePump',soot:'EM_ExhGasEconomiser',scrub:'EM_ScrubberEGCS',erun:'EM_MainEngine',anchor:'ANC2_CableLifter_S',mooring:'MOOR_Drum_S',manifold:'CR_Jib',co2:'AC_U_CO2Room'};
 function animGroups(){ const used=new Set(ANIM_GROUPS.flatMap(g=>g[1])); const rest=Object.keys(ANIM).filter(k=>!used.has(k)); return rest.length?[...ANIM_GROUPS,['Other',rest]]:ANIM_GROUPS; }
 const animItemOk=k=>k.startsWith('m:')?!!MODS[k.slice(2)]:!!ANIM[k];
 const animItemTitle=k=>k.startsWith('m:')?MODS[k.slice(2)].t+' (step by step)':ANIM[k].title.replace(/^M\d+ \u00b7 /,'');
@@ -2004,6 +2004,24 @@ ANIM.rudder={inside:true,title:'Steering gear test (35\u00b0 to 30\u00b0 in 28 s
    if(i===2){ const el=$('#caption b'); if(el) el.textContent=`${this.title} \u00b7 step 3 of 4 \u00b7 ${(k*28).toFixed(1)} s \u00b7 ${a.toFixed(0)}\u00b0`; } },
  end(s){ s.held=false; }};
 
+// ---- emergency steering drill (m_steer.js: bridge + steering gear room, motion-captured crew; rudder schedule shared with Blender)
+function steerA(t){ const K=[[0,0],[22,0],[26,-10],[30,-10],[34,0],[39,20],[42,20],[46,0],[60,0]]; for(let i=0;i<K.length-1;i++){ const [a,va]=K[i],[b,vb]=K[i+1]; if(t>=a&&t<=b){ let u=(t-a)/(b-a); u=u*u*(3-2*u); return va+(vb-va)*u; } } return 0; }
+ANIM.steer={inside:true,title:'Emergency steering drill',
+ steps:[{c:'The OOW announces the drill and telephones the engine room. Bridge steering will be switched off at the steering gear panel once the emergency steering position reports ready.',d:9,rule:'SOLAS V Reg 26.4: emergency steering drills at least every 3 months',cam:[[25.9,-2.6,33.0],[28.8,0.7,32.2]],clip:[0,10]},
+        {c:'An engineer and an AB go to the steering gear room. The engineer starts the second hydraulic pump at the local starter; the AB switches the local control from BRIDGE to LOCAL.',d:11,rule:'SOLAS II-1 Reg 29.2.3 and 29.14 (local control; two power units)',cam:[[0.2,9.8,15.7],[4.6,6.2,14.0]],clip:[10,22],cut:1},
+        {c:'Helm orders come by sound-powered telephone; the engineer repeats each one back, and the AB steers with the non-follow-up lever until the rudder angle indicator shows the ordered angle: port ten, midships, starboard twenty, midships.',d:20,rule:'SOLAS V Reg 26.4 (direct control in the steering gear compartment; communication with the bridge; heading information at the position)',cam:[[1.3,1.4,15.3],[5.4,4.2,14.4]],clip:[22,42],cut:1},
+        {c:'Where fitted, the alternative power supply is tested too: one pump is supplied from the emergency switchboard. The drill also proves the changeover procedure posted in the compartment.',d:8,rule:'SOLAS II-1 Reg 29.14.2; V Reg 26.4',cam:[[0.4,5.8,15.4],[5.6,5.6,14.4]],clip:[42,50],cut:1},
+        {c:'Control is handed back to the bridge, the helmsman checks the steering in both modes, and the drill is recorded in the log book with the date and details of the checks.',d:9,rule:'SOLAS V Reg 26.5 (log book entry)',cam:[[25.9,-2.6,33.0],[28.8,0.7,32.2]],clip:[50,60]}],
+ start(s){ s.cut0=cutaway; s.minD=controls.minDistance; controls.minDistance=0.2; camera.near=0.05; camera.updateProjectionMatrix(); s.held=true;
+   s.hid=['CREW_OOW'].map(nodeOf).filter(Boolean); s.hid.forEach(o=>o.visible=false);
+   s.lab=labelSprite(s,[1.2,4.0,15.6],1.4);
+   loadModel('steer').then(root=>{ if(shipAnim!==s) return; root.traverse(o=>{ if(o.isMesh){ o.frustumCulled=false; o.castShadow=true; } });
+     const g=new THREE.Group(); g.add(root); s.fx.add(g); s.mix=new THREE.AnimationMixer(root); (root.userData.clips||[]).forEach(c=>s.mix.clipAction(c).play()); if(s.ct!=null) s.mix.setTime(s.ct); }).catch(e=>console.warn('steer',e)); },
+ frame(s,t,i,k){ const st=s.A.steps[i], nc=!!st.cut; if(cutaway!==nc){ setCutaway(nc); if(nc) erFocus(); const b=$('#cut'); if(b) b.setAttribute('aria-pressed',nc); } s.ct=st.clip[0]+(st.clip[1]-st.clip[0])*k; if(s.mix) s.mix.setTime(Math.max(0,s.ct));
+   const a=steerA(s.ct), D=Math.PI/180; for(const p of shipSpin.rud) p.o.quaternion.copy(p.q0).multiply(_qs.setFromAxisAngle(AX.z,a*D));
+   const ct=s.ct, ord=ct<22?(ct<10?'DRILL · BRIDGE CONTROL':'CHANGING TO LOCAL'):ct<30?'PORT TEN':ct<34?'MIDSHIPS':ct<42?'STARBOARD TWENTY':ct<50?'MIDSHIPS':'BRIDGE CONTROL';
+   s.lab.set(ord+'  ·  RUDDER '+(Math.abs(a)<0.5?'0°':Math.abs(a).toFixed(0)+'° '+(a>0?'S':'P')),'#ffd27a'); },
+ end(s){ controls.minDistance=s.minD; camera.near=0.1; camera.updateProjectionMatrix(); s.hid.forEach(o=>o.visible=true); for(const p of shipSpin.rud) p.o.quaternion.copy(p.q0); s.held=false; if(cutaway!==s.cut0){ setCutaway(s.cut0); const b=$('#cut'); if(b) b.setAttribute('aria-pressed',s.cut0); } }};
 // ---- navigation lights and day shapes (COLREG Part C) using the ship's own light sets
 ANIM.lights={title:'Navigation lights and day shapes (COLREG)',
  steps:[{c:'At night a power-driven vessel under way shows masthead lights (forward lower, aft higher), sidelights, and a sternlight. Together they tell another ship what you are and which way you are heading.',d:7,rule:'COLREG Rule 23(a)',cam:[[95,250,70],[90,0,18]],L:'underway'},
@@ -2558,6 +2576,67 @@ ANIM.heli={title:'Helicopter winching operation (double lift)',
  frame(s,t,i,k){ const c=s.A.steps[i].clip; s.ct=c[0]+(c[1]-c[0])*k; if(s.mix) s.mix.setTime(Math.max(0,s.ct));
    if(s.mr){ s.mr.rotation.y=t*2.3*Math.PI*2; } if(s.tr){ s.tr.rotation.z=-t*11*Math.PI*2; }
    const ct=s.ct; s.lab.set(ct<10?'CARGO OPS STOPPED · FIRE PARTY READY':ct<24?'HOVER · CLEAR TO WINCH':ct<38.5?'DO NOT TOUCH UNTIL EARTHED':ct<48.5?'STROP UNDER THE ARMS':ct<61.5?'DOUBLE LIFT · STAND CLEAR':'DEPARTED · DECK CHECK',ct>=24&&ct<38.5?'#ff6b61':'#ffd27a'); },
+ end(s){ controls.minDistance=s.minD; }};
+// ---- fuel changeover before an emission control area (m_eca.js: ECR + fuel supply unit, motion-captured engineers)
+function ecaMix(t){ const S=[[22,24.6],[26,28.6],[35,37.6],[38.5,40]]; let m=0; for(const [a,b] of S) m+=0.25*Math.min(1,Math.max(0,(t-a)/(b-a))); return m; }
+ANIM.eca={inside:true,title:'Fuel changeover for an emission control area (ECA)',
+ steps:[{c:'Before the ECA boundary the duty engineer checks the written changeover procedure and works out when to start, so that only compliant fuel (0.10% sulphur or less) reaches the engine before entry: flushing time, tank levels and the passage plan.',d:9,rule:'MARPOL Annex VI Reg 14.4 and 14.6 (written procedure; 0.10% m/m inside an ECA)',cam:[[25.2,-10.7,16.4],[27.4,-8.4,15.6]],clip:[0,10]},
+        {c:'At the fuel supply unit the second engineer checks the gas-oil service tank and the cooler, and lowers the fuel temperature set point gradually — about 2°C a minute — to avoid thermal shock to the injection pumps.',d:10,rule:'Engine-maker’s changeover instructions; ISO 8217 DMA/DMB',cam:[[23.4,3.6,10.9],[25.9,5.8,10.3]],clip:[10,22]},
+        {c:'The three-way changeover valve is opened in stages from HFO to MGO while the temperature falls. The MGO cooler is put in service so the viscosity stays above the engine minimum (typically 2 cSt); the system is flushed through to the engine.',d:18,rule:'MARPOL Annex VI Reg 14.6; maker’s minimum viscosity',cam:[[28.4,3.8,10.9],[26.1,5.6,10.2]],clip:[22,40]},
+        {c:'With the system fully on gas oil the second engineer reports to the ECR, which informs the bridge. The changeover must be complete before the ship crosses the ECA boundary.',d:8,rule:'MARPOL Annex VI Reg 14.6',cam:[[23.4,3.6,10.9],[25.9,5.8,10.3]],clip:[40,48]},
+        {c:'Logbook entry: date, time and ship’s position when the changeover was completed, with the volume of low-sulphur fuel in each tank. The same is recorded on leaving the ECA.',d:9,rule:'MARPOL Annex VI Reg 14.6 (logbook prescribed by the Administration)',cam:[[25.2,-10.7,16.4],[27.4,-8.4,15.6]],clip:[48,60]}],
+ start(s){ s.cut0=cutaway; s.minD=controls.minDistance; controls.minDistance=0.2; camera.near=0.05; camera.updateProjectionMatrix(); erFocus();
+   s.hid=['CREW_DutyEngineer'].map(nodeOf).filter(Boolean); s.hid.forEach(o=>o.visible=false);
+   s.lab=labelSprite(s,[26.3,4.6,11.6],1.3); s.lab2=labelSprite(s,[27.4,-7.4,16.9],1.3);
+   loadModel('eca').then(root=>{ if(shipAnim!==s) return; root.traverse(o=>{ if(o.isMesh){ o.frustumCulled=false; o.castShadow=true; } });
+     const g=new THREE.Group(); g.add(root); s.fx.add(g); s.mix=new THREE.AnimationMixer(root); (root.userData.clips||[]).forEach(c=>s.mix.clipAction(c).play()); if(s.ct!=null) s.mix.setTime(s.ct); }).catch(e=>console.warn('eca',e)); },
+ frame(s,t,i,k){ const st=s.A.steps[i], nc=true; if(cutaway!==nc){ setCutaway(nc); erFocus(); const b=$('#cut'); if(b) b.setAttribute('aria-pressed',nc); }
+   s.ct=st.clip[0]+(st.clip[1]-st.clip[0])*k; if(s.mix) s.mix.setTime(Math.max(0,s.ct));
+   const ct=s.ct, m=ecaMix(ct), Tset=ct<14?135:ct<22?135-4*(ct-14)/8:Math.max(42,131-89*Math.min(1,(ct-22)/18)), visc=13*Math.exp(-0.0185*(135-Tset))*(1-m)+Math.max(2.6,4.2-0.03*(Tset-40))*m;
+   const mins=ct<22?0:Math.round(Math.min(1,(ct-22)/18)*48);
+   s.lab.set('MGO '+Math.round(m*100)+'%  ·  '+Tset.toFixed(0)+'°C  ·  '+visc.toFixed(1)+' cSt'+(mins?'  ·  +'+mins+' min':''),m>=1?'#7fd1a4':'#ffd27a');
+   s.lab2.set(ct<10?'PROCEDURE · START TIME':ct<48?'MONITORING':'LOGGED: TIME · POSITION · TANK VOLUMES','#ffd27a'); },
+ end(s){ controls.minDistance=s.minD; camera.near=0.1; camera.updateProjectionMatrix(); s.hid.forEach(o=>o.visible=true); if(cutaway!==s.cut0){ setCutaway(s.cut0); const b=$('#cut'); if(b) b.setAttribute('aria-pressed',s.cut0); } }};
+// ---- hot work under a permit after gas-freeing (m_hotwork.js: officer with gas meter, welder, fire watch; sparks and arc light here)
+function sparkFx(s,at){ const N=240, g=new THREE.BufferGeometry(), pos=new Float32Array(N*3); g.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  const m=new THREE.PointsMaterial({color:'#ffb347',size:0.035,transparent:true,opacity:0.95,depthWrite:false,blending:THREE.AdditiveBlending}); const P=new THREE.Points(g,m); P.frustumCulled=false; s.fx.add(P);
+  const o=B(...at), v=new Float32Array(N*3), age=new Float32Array(N).fill(9), life=new Float32Array(N);
+  const L=new THREE.PointLight(0xbfd8ff,0,6,2); L.position.copy(o); s.fx.add(L);
+  const F={P,L,tick(dt,on,t){ for(let n=0;n<N;n++){ age[n]+=dt; if(age[n]>life[n]){ if(on&&Math.random()<0.5){ age[n]=0; life[n]=0.25+Math.random()*0.7; const a=Math.random()*Math.PI*2, sp=1.2+Math.random()*2.6;
+          v[n*3]=Math.cos(a)*sp*0.8; v[n*3+1]=0.6+Math.random()*1.8; v[n*3+2]=Math.sin(a)*sp*0.8; pos[n*3]=o.x; pos[n*3+1]=o.y; pos[n*3+2]=o.z; } else { pos[n*3+1]=-1e5; continue; } }
+        v[n*3+1]-=9.8*dt; pos[n*3]+=v[n*3]*dt; pos[n*3+1]+=v[n*3+1]*dt; pos[n*3+2]+=v[n*3+2]*dt; if(pos[n*3+1]<o.y-0.38){ pos[n*3+1]=o.y-0.38; v[n*3+1]*=-0.25; v[n*3]*=0.5; v[n*3+2]*=0.5; } }
+      g.attributes.position.needsUpdate=true; L.intensity=on?(6+5*Math.abs(Math.sin(t*37))*Math.random()):0; }};
+  return F; }
+ANIM.hotwork={title:'Hot work on deck: permit and gas-freeing',
+ steps:[{c:'Gas-freeing: a water-driven fan blows fresh air into the cargo tank and the vapour leaves through a riser above deck. The responsible officer tests the tank atmosphere with a calibrated multi-gas meter at several levels.',d:10,rule:'ISGOTT Ch. 12 (gas-freeing); gas free: O₂ 20.9%, hydrocarbon below 1% LFL, toxic gases below their exposure limits',cam:[[104.6,14.6,21.3],[108.0,11.0,19.8]],clip:[0,10.5]},
+        {c:'At the work site the officer re-tests, checks that the area is clear for 10 m, adjacent tanks are gas free or inerted, drains and scuppers are covered, the fire hose is charged and an extinguisher is at hand. The permit is issued, countersigned by the master and displayed at the site.',d:13,rule:'ISGOTT 9.4 (hot work permit; precautions); SOLAS II-2 Reg 4.5.10',cam:[[115.6,9.6,21.2],[111.6,5.6,19.7]],clip:[10.5,24]},
+        {c:'The fire watch takes position with the charged hose; the welder (helmet with filter lens, leather gauntlets, apron) kneels at the bracket. The return cable is clamped close to the weld so no current strays through pipelines.',d:9,rule:'ISGOTT 9.4.4 (electric welding equipment)',cam:[[114.4,8.6,20.8],[111.0,4.8,19.6]],clip:[24,31]},
+        {c:'Welding in progress. The officer re-tests the atmosphere at intervals; the work stops at once if gas is detected, the wind changes, or any cargo, ballast or venting operation starts nearby.',d:16,rule:'ISGOTT 9.4; MSC.1/Circ.1321 (prevention of fires and explosions during hot work)',cam:[[109.0,6.5,20.6],[111.0,4.5,19.6]],clip:[31,56]},
+        {c:'The work is finished and the area inspected for heat and smouldering material. The fire watch stays for at least 30 minutes afterwards before the permit is closed out.',d:10,rule:'ISGOTT 9.4 (post-work fire watch)',cam:[[115.6,9.6,21.2],[111.6,5.6,19.7]],clip:[56,70]}],
+ start(s){ s.minD=controls.minDistance; controls.minDistance=0.5; s.lab=labelSprite(s,[108.0,12.6,21.9],1.6); s.sp=sparkFx(s,[111.0,4.40,19.55]); s.lt=0;
+   loadModel('hotwork').then(root=>{ if(shipAnim!==s) return; root.traverse(o=>{ if(o.isMesh){ o.frustumCulled=false; o.castShadow=true; } });
+     const g=new THREE.Group(); g.add(root); s.fx.add(g); s.mix=new THREE.AnimationMixer(root); (root.userData.clips||[]).forEach(c=>s.mix.clipAction(c).play()); s.rot=root.getObjectByName('HW_FanRotor'); if(s.ct!=null) s.mix.setTime(s.ct); }).catch(e=>console.warn('hotwork',e)); },
+ frame(s,t,i,k){ const st=s.A.steps[i]; s.ct=st.clip[0]+(st.clip[1]-st.clip[0])*k; if(s.mix) s.mix.setTime(Math.max(0,s.ct));
+   if(s.rot) s.rot.rotation.y=t*18; const dt=Math.min(0.05,Math.max(0,t-s.lt)); s.lt=t; const ct=s.ct, on=ct>31.5&&ct<55.8&&((ct*1.3)%5)<4.1; s.sp.tick(dt,on,t);
+   s.lab.set(ct<4.7?'GAS-FREEING':ct<23.6?'O₂ 20.9%  ·  LFL 0%  ·  H₂S 0 ppm  ·  CO 0 ppm':ct<56?'HOT WORK PERMIT ISSUED  ·  RE-TEST AT INTERVALS':'FIRE WATCH 30 MIN',ct<4.7?'#ffd27a':'#7fd1a4');  },
+ end(s){ controls.minDistance=s.minD; }};
+// ---- cargo emergency shutdown during loading (m_esd.js: deck watch at the manifold, cargo officer in the CCR)
+ANIM.esd={harbour:true,title:'Cargo emergency shutdown (ESD) during loading',
+ steps:[{c:'Loading through the starboard No.3 manifold. The deck watch stays at the manifold with a radio to the CCR, watching the hose, flange and pressure gauge; the ship/shore ESD link has been tested before the transfer started.',d:9,rule:'ISGOTT Ship/Shore Safety Checklist (ESD link tested; communications agreed)',cam:[[104.2,-19.5,23.4],[97.6,-13.4,20.6]],clip:[0,9.5]},
+        {c:'A leak at the hose flange. The deck watch trips the nearest ESD push button and reports by radio. Never wait to be told: stop the transfer first.',d:8,rule:'ISGOTT: emergency stop of cargo operations; ESD push buttons at the manifold',cam:[[101.6,-17.8,21.5],[98.2,-14.0,20.4]],clip:[9.5,17.5]},
+        {c:'The ESD signal stops the terminal’s pumps; the ship’s manifold valve closes at its controlled rate (about 30 s here) so the line is not hit by a pressure surge. In the CCR the cargo officer acknowledges the alarm, informs the terminal and closes the tank valves.',d:12,rule:'ISGOTT (valve closure times and surge pressure); OCIMF',cam:[[27.1,-9.6,20.9],[30.2,-5.8,20.1]],clip:[17.5,31]},
+        {c:'The oil is held in the drip tray (scupper plugs in); the deck watch brings absorbents from the SOPEP locker and cleans up. No oil has gone overboard; if it had, the SOPEP reporting procedure starts at once.',d:11,rule:'MARPOL Annex I Reg 37 (SOPEP); ISGOTT spill response',cam:[[102.2,-16.8,21.8],[97.8,-12.8,19.6]],clip:[31,45]},
+        {c:'Before anything restarts, the cause is found and fixed (hose or gasket replaced and pressure-tested), the terminal and ship agree, and the incident is recorded and reported.',d:7,rule:'ISGOTT; company incident reporting',cam:[[104.2,-19.5,23.4],[97.6,-13.4,20.6]],clip:[45,50]}],
+ start(s){ s.minD=controls.minDistance; controls.minDistance=0.5; const names=[]; ship.traverse(o=>{ if(/^(CR_|TRM_)/.test(o.name)) names.push(o.name); }); keepPose(s,names);
+   s.jet=jetFx(s,[97.0,-13.62,21.2],[96.7,-14.3,19.25],{n:260,col:'#2b2014',h:0.18,size:0.05,op:0.8,spread:0.25});
+   s.lab=labelSprite(s,[99.6,-16.4,22.6],1.6); s.lab2=labelSprite(s,[28.4,-4.0,21.4],1.3); s.lt=0;
+   loadModel('esd').then(root=>{ if(shipAnim!==s) return; root.traverse(o=>{ if(o.isMesh){ o.frustumCulled=false; o.castShadow=true; } });
+     const g=new THREE.Group(); g.add(root); s.fx.add(g); s.mix=new THREE.AnimationMixer(root); (root.userData.clips||[]).forEach(c=>s.mix.clipAction(c).play()); if(s.ct!=null) s.mix.setTime(s.ct); }).catch(e=>console.warn('esd',e)); },
+ frame(s,t,i,k){ const st=s.A.steps[i]; clipAt(s,'ANIM_manifold',46); s.ct=st.clip[0]+(st.clip[1]-st.clip[0])*k; if(s.mix) s.mix.setTime(Math.max(0,s.ct));
+   const ct=s.ct, dt=Math.min(0.05,Math.max(0,t-s.lt)); s.lt=t; const flow=ct<10?0:ct<13?1:ct<28?Math.max(0,1-(ct-13)/15):0; s.jet.tick(dt,flow);
+   const vc=ct<13?100:Math.max(0,100-(ct-13)/30*100);
+   s.lab.set(ct<10?'LOADING · 2.1 bar':ct<13?'LEAK AT FLANGE':ct<43?('ESD · MANIFOLD VALVE '+vc.toFixed(0)+'%'):'STOPPED · CLEAN-UP','#ff6b61');
+   s.lab2.set(ct<13?'LOADING 1200 m³/h':ct<31?'ESD ALARM · TERMINAL INFORMED':'TANK VALVES SHUT','#ffd27a');  },
  end(s){ controls.minDistance=s.minD; }};
 // ---- engine room in operation: main engine under way, shaft turning, generators and purifiers running, ECR screens live
 ANIM.erun={inside:true,title:'Engine room in operation (sea passage)',
